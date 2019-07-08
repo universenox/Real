@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <algorithm>
+#include <real/real.hpp>
 
 namespace boost {
     namespace real {
@@ -46,6 +47,42 @@ namespace boost {
 
                 return binary[binary.size() - 1 - (index - n)];
             }
+
+            // e^x = sum_{k=0}^\inf = x^0/0! + x^1/1! + x^2/2! + x^3/3! + x^3/6! + ...
+
+            class exponential {
+                private:
+                // would be nice to interoperate between long, int, and boost::real::real,
+                // and have ctors from the integral types
+                boost::real::real k_prev = boost::real::real_explicit("0");
+                boost::real::real const * const x_ptr;
+                boost::real::real last_term; // x^kn / kn!
+                boost::real::real current_value; // summation from k0 to k_n, with precision digits
+
+                public:
+                exponential(boost::real::real &x) : x_ptr(&x) {
+                    last_term = boost::real::real ("1");
+                    current_value = boost::real::real ("1");
+                };
+
+                int get_nth_digit(unsigned int n) {
+                    boost::real::real one = boost::real::real_explicit("1");
+                    // if n < k_prev, reset
+
+                    boost::real::real min_bound;
+                    std::get<boost::real::real_explicit>(min_bound.get_real_number()).digits = {1};
+                    std::get<boost::real::real_explicit>(min_bound.get_real_number()).exponent = 1-n;
+
+                    // keep getting terms from the taylor series until the terms go below our precision bound
+                    while((last_term > min_bound) || (last_term == min_bound)) {
+                        last_term = last_term * (*x_ptr) / (k_prev + one);
+                        current_value = current_value + last_term;
+                    }
+
+                    return 0;
+                }
+
+            };
         }
     }
 }

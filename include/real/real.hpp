@@ -55,8 +55,8 @@ namespace boost {
          * operator "==" but for those cases where the class is not able to decide the value of the
          * result before reaching the maximum precision, a precision_exception is thrown.
          */
-        
 
+        // T is a user-defined type used in real_algorithm 
         class real {
         private:
 
@@ -91,7 +91,6 @@ namespace boost {
              */
             real(const std::string& number) : _real_p(std::make_shared<real_data>(real_explicit(number)))
             {};
-                                              
 
             /**
              * @brief Initializer list constructor
@@ -320,10 +319,35 @@ namespace boost {
             }
 
             /**
+             * @brief Sets this real_data to that of the operation between 
+             * this previous real_data and other real_data.
+             *
+             * @param other - the right side operand boost::real::real number.
+             */
+            void operator/=(real& other) {
+                if(this->_real_p.use_count() > 1) {
+                    this->_real_p = std::make_shared<real_data>(real_data(*this->_real_p));
+                }
+                this->_real_p = 
+                    std::make_shared<real_data>(real_operation(this->_real_p, other._real_p, OPERATION::DIVISION));
+            }
+
+            /**
+             * @brief Creates a new boost::real::real representing the product
+             * of *this and other
+             *
+             * @param other - the right side operand boost::real::real number.
+             * @return A copy of the new boost::real::real number representation.
+             */
+            real operator/(real other) {
+                return real(real_operation(this->_real_p, other._real_p, OPERATION::DIVISION));
+            }
+
+            /**
              * @brief Assigns *this to other
              * @param other - the boost::real::real number to copy.
              */
-            void operator=(real& other) {
+            void operator=(real other) {
                 if(this->_real_p.use_count() > 1) {
                     // if this is being referenced to, point to new memory before assigning
                     // i.e., if A = B + B, and we do B = D, we first make B point elsewhere.
@@ -494,7 +518,7 @@ namespace boost {
 }
 
 inline boost::real::real operator "" _r(long double x) {
-    return boost::real::real(std::to_string(x));
+    return boost::real::real (std::to_string(x));
 }
 
 inline boost::real::real operator "" _r(unsigned long long x) {

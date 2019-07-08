@@ -19,7 +19,7 @@ namespace boost{
         * 
         * @warning due to the recursive nature of real_operation, destruction may cause stack overflow
         */
-        enum class OPERATION{ADDITION, SUBTRACTION, MULTIPLICATION}; 
+        enum class OPERATION{ADDITION, SUBTRACTION, MULTIPLICATION, DIVISION}; 
 
         class real_operation{
         private:
