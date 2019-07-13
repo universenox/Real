@@ -176,7 +176,8 @@ namespace boost {
             ///  @brief a binary-search type method for dividing exact_numbers.
             ///  @param is_upper true: returns result with an error of +epsilon, while
             ///                  false: returns result with an error of -epsilon
-            void divide_vector(exact_number divisor, bool is_upper, unsigned int max_precision) {
+            /// returns lower bound for division. to get upper bound, round_up()
+            void divide_vector(exact_number divisor, unsigned int max_precision) {
                 /// @TODO: replace this with something more efficient, like newton-raphson method
                 // it also completely recalculates on each precision increase
                 // instead, could use previous information to make better "guesses"
@@ -221,7 +222,7 @@ namespace boost {
                     return;
                 }
 
-                if (divisor == (*this)) { 
+                if (divisor == numerator) { 
                     (*this) = tmp;
                     (*this).positive = positive;
                     return;
@@ -266,7 +267,6 @@ namespace boost {
                 // continue the loop while we are still inaccurate (up to max precision), or while
                 // we are on the wrong side of the answer
                 while ((residual.abs() > min_boundary_p) || 
-                        // (is_upper && (residual < min_boundary_n)) || (!is_upper && (residual > min_boundary_p))) &&
                         (distance.exponent > min_boundary_p.exponent)) {
                     /// TODO: we might exit the loop early due to the last statement. 
                     /// Verify our answers are within +- epsilon of the solution.
@@ -349,8 +349,11 @@ namespace boost {
                         return;
                     }
                     // at this point, it is impossible to make the residual 0
-                    if (is_upper)
-                        (*this) = tmp_upper;
+
+                    if (positive)
+                        (*this).positive = true;
+                    else
+                        (*this).positive = false;
                 } else { // residual_o == 0
                     if (positive)
                         (*this).positive = true;
@@ -360,7 +363,7 @@ namespace boost {
                 }
             }
 
-            void round_up() {
+            void round_up_abs() {
                 int index = digits.size() - 1;
                 bool keep_carrying = true;
 
@@ -384,7 +387,21 @@ namespace boost {
                 }
             }
 
+            void round_up() {
+                if (positive)
+                    this->round_up_abs();
+                else
+                    this->round_down_abs();
+            }
+
             void round_down() {
+                if (positive)
+                    this->round_down_abs();
+                else
+                    this->round_up_abs();
+            }
+
+            void round_down_abs() {
                 int index = digits.size() - 1;
                 bool keep_carrying = true;
 

@@ -188,26 +188,27 @@ namespace boost {
 
                             // calculate the upper bound
                             quotient = numerator;
-                            quotient.divide_vector(denominator, true, this->max_precision());
+                            quotient.divide_vector(denominator, this->max_precision());
                             this->_approximation_interval.upper_bound = quotient;
 
                             residual = quotient * denominator - numerator;
                             residual.normalize();
                             quotient.normalize();
 
+                            if (residual.abs() > zero)
+                                this->_approximation_interval.upper_bound.round_up_abs();
+
                             // if both operands are numbers (not intervals), then we can skip doing the lower bound separately
                             if (ro.get_rhs_itr().get_interval().is_a_number() && ro.get_lhs_itr().get_interval().is_a_number()) {
-                                for(int i = 0; (i < 2) && (residual > zero); i++) { 
-                                    quotient.round_down();
-                                    residual = quotient * denominator - numerator;
-                                    residual.normalize();
-                                }
                                 _approximation_interval.lower_bound = quotient;
 
                                 if (residual == zero) {
                                     _approximation_interval.upper_bound = _approximation_interval.lower_bound;
                                 } 
                                 
+                                // for negative result, swap bounds
+                                if (!(ro.get_lhs_itr().get_interval().positive() == ro.get_rhs_itr().get_interval().positive()))
+                                    _approximation_interval.swap_bounds();
                                 return;
                             }
 
@@ -217,12 +218,11 @@ namespace boost {
                             quotient = _approximation_interval.lower_bound;
 
                             quotient = numerator;
-                            quotient.divide_vector(denominator, false, this->max_precision());
+                            quotient.divide_vector(denominator, this->max_precision());
                             this->_approximation_interval.lower_bound = quotient;
 
                             // for negative result, swap bounds
-                            if (!(ro.get_lhs_itr().get_interval().positive() == 
-                                ro.get_rhs_itr().get_interval().positive()))
+                            if (!(ro.get_lhs_itr().get_interval().positive() == ro.get_rhs_itr().get_interval().positive()))
                                 _approximation_interval.swap_bounds();
                         break;
                 }
