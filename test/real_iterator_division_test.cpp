@@ -43,17 +43,18 @@ TEST_CASE("Operator / boost::real::const_precision_iterator") { // assumes max p
             boost::real::real result = b/a; 
             // 12 / 144 
             // [10, 20] / [100, 200] = [10/200, 20/100] = [.05, .2]
-            // auto result_it = result.get_real_itr().cbegin();
+            auto result_it = result.get_real_itr().cbegin();
 
             boost::real::interval expected_interval({});
-            // expected_interval.lower_bound.positive = true;
-            // expected_interval.upper_bound.positive = true;
-            // expected_interval.lower_bound.exponent = -1;
-            // expected_interval.upper_bound.exponent = 0;
-            // expected_interval.lower_bound.digits = {5};
-            // expected_interval.upper_bound.digits = {2};
-            // CHECK(expected_interval == result_it.get_interval()); // we are getting .0499... instead of .05
-            auto result_it = result.get_real_itr().cend();
+            expected_interval.lower_bound.positive = true;
+            expected_interval.upper_bound.positive = true;
+            expected_interval.lower_bound.exponent = -1;
+            expected_interval.upper_bound.exponent = 0;
+            expected_interval.lower_bound.digits = {5};
+            expected_interval.upper_bound.digits = {2};
+            CHECK(expected_interval == result_it.get_interval()); 
+
+            result_it = result.get_real_itr().cend();
             // [12, 12] / [144, 144] = [.08333...3, .0833...4]
             expected_interval.lower_bound.positive = true;
             expected_interval.upper_bound.positive = true;
@@ -78,6 +79,45 @@ TEST_CASE("Operator / boost::real::const_precision_iterator") { // assumes max p
             expected_interval.upper_bound.exponent = 0;
             expected_interval.lower_bound.digits = {3,3,3,3,3,3,3,3,3,3};
             expected_interval.upper_bound.digits = {3,3,3,3,3,3,3,3,3,4};
+            CHECK(expected_interval == result_it.get_interval());
+        }
+
+        SECTION("-1/3") {             
+            boost::real::real a("-1"); // [1, 1]
+            boost::real::real b("3");  // [3, 3]
+            boost::real::real result = a/b; // [1,1] / [3,3]
+
+                auto result_it = result.get_real_itr().cbegin(); // same as .cend(), in this case
+
+                boost::real::interval expected_interval({});
+                expected_interval.lower_bound.positive = false;
+                expected_interval.upper_bound.positive = false;
+                expected_interval.lower_bound.exponent = 0;
+                expected_interval.upper_bound.exponent = 0;
+                expected_interval.lower_bound.digits = {3,3,3,3,3,3,3,3,3,4};
+                expected_interval.upper_bound.digits = {3,3,3,3,3,3,3,3,3,3};
+                CHECK(expected_interval == result_it.get_interval());
+            }
+
+        SECTION("-15/10") {             
+        boost::real::real a("-15"); // [-1, -2]
+        boost::real::real b("10");  // [1, 2]
+        boost::real::real result = a/b; // [-1,-2] / [1,2] -> [-2, -1]
+
+            auto result_it = result.get_real_itr().cbegin();
+
+            boost::real::interval expected_interval({});
+            expected_interval.lower_bound.positive = false;
+            expected_interval.upper_bound.positive = false;
+            expected_interval.lower_bound.exponent = 1;
+            expected_interval.upper_bound.exponent = 1;
+            expected_interval.lower_bound.digits = {2};
+            expected_interval.upper_bound.digits = {1};
+            CHECK(expected_interval == result_it.get_interval());
+
+            ++result_it;
+            expected_interval.lower_bound.digits = {1,5};
+            expected_interval.upper_bound.digits = {1,5};
             CHECK(expected_interval == result_it.get_interval());
         }
 

@@ -26,7 +26,7 @@ namespace boost {
             // Number representation as a vector of digits with an integer part and a sign (+/-)
             // TODO: Add normalizations to the constructors
             exact_number explicit_number;
-
+            
         public:
 
             /**
@@ -172,7 +172,6 @@ namespace boost {
                 if (n < explicit_number.digits.size()) {
                     return explicit_number.digits.at(n);
                 }
-
                 return 0;
             }
 

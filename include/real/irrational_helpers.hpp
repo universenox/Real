@@ -4,10 +4,13 @@
 #include <vector>
 #include <algorithm>
 #include <real/real.hpp>
+#include<math.h>
 
 namespace boost {
     namespace real {
         namespace irrational {
+            // used for extra precision. should be replaced with something more definitive in the future.
+            inline const int PLACEHOLDER = 10; 
 
             /**
              * @brief The function returns the n-th digit of the champernowne number in the
@@ -48,41 +51,47 @@ namespace boost {
                 return binary[binary.size() - 1 - (index - n)];
             }
 
-            // e^x = sum_{k=0}^\inf = x^0/0! + x^1/1! + x^2/2! + x^3/3! + x^3/6! + ...
+            /// @TODO: figure out how to avoid unnecessary recalculation by saving
+            // some information in real_algorithm
 
-            class exponential {
-                private:
-                // would be nice to interoperate between long, int, and boost::real::real,
-                // and have ctors from the integral types
-                boost::real::real k_prev = boost::real::real_explicit("0");
-                boost::real::real const * const x_ptr;
-                boost::real::real last_term; // x^kn / kn!
-                boost::real::real current_value; // summation from k0 to k_n, with precision digits
+            // e^x = sum_{k=0}^\infty x^k / k! = 1 + x + x^2/2! + x^3/3! + x^4/4!
+            // calculates e^x, where x = m/l
+            template<int m, int l = 1>
+            int exponential_get_nth_digit(unsigned int n) {
+                std::vector<int> const one {1};
+                std::vector<int> const zero {0};
 
-                public:
-                exponential(boost::real::real &x) : x_ptr(&x) {
-                    last_term = boost::real::real ("1");
-                    current_value = boost::real::real ("1");
-                };
+                exact_number one_n {one, 1};
+                exact_number last_term {one, 1}; // x^k_n / k_n!
+                exact_number current_value; // summation up to k_n
 
-                int get_nth_digit(unsigned int n) {
-                    boost::real::real one = boost::real::real_explicit("1");
-                    // if n < k_prev, reset
+                exact_number k;
+                exact_number k_fac;
+                exact_number const mn (m);
+                exact_number const ln (l);
+                std::cout << mn.as_string() << ", " << ln.as_string() << '\n';
+                exact_number x = mn;
 
-                    boost::real::real min_bound;
-                    std::get<boost::real::real_explicit>(min_bound.get_real_number()).digits = {1};
-                    std::get<boost::real::real_explicit>(min_bound.get_real_number()).exponent = 1-n;
+                /// @TODO look into possible precision problems
+                x.divide_vector(ln, n+PLACEHOLDER);
 
-                    // keep getting terms from the taylor series until the terms go below our precision bound
-                    while((last_term > min_bound) || (last_term == min_bound)) {
-                        last_term = last_term * (*x_ptr) / (k_prev + one);
-                        current_value = current_value + last_term;
-                    }
+                // prepare to calculate k=2 term
+                k = one_n + one_n;
+                last_term = x;
+                current_value = one_n + x;
 
-                    return 0;
+                // keep getting terms from the taylor series until the terms go below our precision bound
+                /// @TODO: ensure cast doesn't overflow
+                while(last_term.exponent >= 1-(int)(n+PLACEHOLDER)) {
+                    last_term *= x;
+                    last_term.divide_vector(k, n+PLACEHOLDER);
+                    current_value += last_term;
+
+                    k = k + one_n;
                 }
 
-            };
+                return current_value.digits[n];
+            }
         }
     }
 }

@@ -162,71 +162,125 @@ namespace boost {
                     break;
                 }
                 case OPERATION::DIVISION: {
-                            exact_number zero = exact_number();
-                            exact_number residual;
-                            exact_number quotient;
-                            exact_number numerator;
-                            exact_number denominator;
+                        exact_number zero = exact_number();
+                        exact_number residual;
+                        exact_number quotient;
+                        exact_number numerator;
+                        exact_number denominator;
 
-                            // if the interval contains zero, iterate until it doesn't, or until max_precision.
-                            while (ro.get_rhs_itr().get_interval().lower_bound < zero && 
-                                   ro.get_rhs_itr().get_interval().upper_bound > zero &&
-                                   _precision <= this->max_precision())
-                                ++(*this);
-                            
-                            // if the interval contains zero after iterating until max precision, throw,
-                            // because this causes one side of the result interval to tend towards +/-infinity
-                            if (ro.get_rhs_itr().get_interval().lower_bound < zero && 
-                                ro.get_rhs_itr().get_interval().upper_bound > zero)
-                                throw boost::real::divergent_division_result_exception();
+                        // if the interval contains zero, iterate until it doesn't, or until max_precision.
+                        while (!ro.get_rhs_itr().get_interval().positive() &&
+                                !ro.get_rhs_itr().get_interval().positive() &&
+                                _precision <= this->max_precision())
+                            ++(*this);
+                        
+                        // if the interval contains zero after iterating until max precision, throw,
+                        // because this causes one side of the result interval to tend towards +/-infinity
+                        if (!ro.get_rhs_itr().get_interval().positive() &&
+                            !ro.get_rhs_itr().get_interval().negative())
+                            throw boost::real::divergent_division_result_exception();
 
-
-                            // Q = N/D
-                            // first, the upper boundary
-                            numerator = ro.get_lhs_itr().get_interval().upper_bound;
-                            denominator = ro.get_rhs_itr().get_interval().lower_bound;
-
-                            // calculate the upper bound
-                            quotient = numerator;
-                            quotient.divide_vector(denominator, true, this->max_precision());
-                            this->_approximation_interval.upper_bound = quotient;
-
-                            residual = quotient * denominator - numerator;
-                            residual.normalize();
-                            quotient.normalize();
-
-                            // if both operands are numbers (not intervals), then we can skip doing the lower bound separately
-                            if (ro.get_rhs_itr().get_interval().is_a_number() && ro.get_lhs_itr().get_interval().is_a_number()) {
-                                for(int i = 0; (i < 2) && (residual > zero); i++) { 
-                                    quotient.round_down();
-                                    residual = quotient * denominator - numerator;
-                                    residual.normalize();
-                                }
-                                _approximation_interval.lower_bound = quotient;
-
-                                if (residual == zero) {
-                                    _approximation_interval.upper_bound = _approximation_interval.lower_bound;
-                                } 
-                                
-                                return;
+                        // Q = N/D
+                        // first, the upper boundary
+                        if (ro.get_lhs_itr().get_interval().positive()) {
+                            if (ro.get_rhs_itr().get_interval().positive()) {
+                                numerator = ro.get_lhs_itr().get_interval().upper_bound;
+                                denominator = ro.get_rhs_itr().get_interval().lower_bound;
+                            } else { 
+                                numerator = ro.get_lhs_itr().get_interval().lower_bound;
+                                denominator = ro.get_rhs_itr().get_interval().upper_bound;
                             }
+                        } else if (ro.get_lhs_itr().get_interval().negative()) {
+                            if (ro.get_rhs_itr().get_interval().positive()) {
+                                numerator = ro.get_lhs_itr().get_interval().upper_bound;
+                                denominator = ro.get_rhs_itr().get_interval().lower_bound;
+                            } else if (ro.get_rhs_itr().get_interval().negative()) {
+                                numerator = ro.get_lhs_itr().get_interval().lower_bound;
+                                denominator = ro.get_rhs_itr().get_interval().upper_bound;
+                            }
+                        } else {
+                            if (ro.get_rhs_itr().get_interval().positive()) {
+                                numerator = ro.get_lhs_itr().get_interval().upper_bound;
+                                denominator = ro.get_rhs_itr().get_interval().upper_bound;
+                            } else if (ro.get_rhs_itr().get_interval().negative()) {
+                                numerator = ro.get_lhs_itr().get_interval().lower_bound;
+                                denominator = ro.get_rhs_itr().get_interval().lower_bound;
+                            }
+                        }
 
-                            // lower boundary
-                            numerator = ro.get_lhs_itr().get_interval().lower_bound;
-                            denominator = ro.get_rhs_itr().get_interval().upper_bound;
-                            quotient = _approximation_interval.lower_bound;
+                        // calculate the upper bound
+                        quotient = numerator;
+                        quotient.divide_vector(denominator, this->max_precision());
 
-                            quotient = numerator;
-                            quotient.divide_vector(denominator, false, this->max_precision());
-                            this->_approximation_interval.lower_bound = quotient;
+                        residual = quotient * denominator - numerator;
+                        residual.normalize();
+                        quotient.normalize();
 
-                            // for negative result, swap bounds
-                            if (!(ro.get_lhs_itr().get_interval().positive() == 
-                                ro.get_rhs_itr().get_interval().positive()))
-                                _approximation_interval.swap_bounds();
-                        break;
+                        this->_approximation_interval.upper_bound = quotient;
+
+                        if (residual.abs() > zero) {
+                            this->_approximation_interval.upper_bound.round_up();
+                        }
+
+                        // if both operands are numbers (not intervals), then we can skip doing the lower bound separately
+                        if (ro.get_rhs_itr().get_interval().is_a_number() && ro.get_lhs_itr().get_interval().is_a_number()) {
+                            _approximation_interval.lower_bound = quotient;
+
+                            if (residual == zero) {
+                                _approximation_interval.upper_bound = _approximation_interval.lower_bound;
+                            }  else {
+                                _approximation_interval.lower_bound.round_down();
+                            }
+                            return;
+                        }
+
+                        // lower boundary
+                        if (ro.get_lhs_itr().get_interval().positive()) {
+                            if (ro.get_rhs_itr().get_interval().positive()) {
+                                numerator = ro.get_lhs_itr().get_interval().lower_bound;
+                                denominator = ro.get_rhs_itr().get_interval().upper_bound;
+                            } else { 
+                                numerator = ro.get_lhs_itr().get_interval().upper_bound;
+                                denominator = ro.get_rhs_itr().get_interval().lower_bound;
+                            }
+                        } else if (ro.get_lhs_itr().get_interval().negative()) {
+                            if (ro.get_rhs_itr().get_interval().positive()) {
+                                numerator = ro.get_lhs_itr().get_interval().lower_bound;
+                                denominator = ro.get_rhs_itr().get_interval().upper_bound;
+                            } else if (ro.get_rhs_itr().get_interval().negative()) {
+                                numerator = ro.get_lhs_itr().get_interval().upper_bound;
+                                denominator = ro.get_rhs_itr().get_interval().lower_bound;
+                            }
+                        } else {
+                            if (ro.get_rhs_itr().get_interval().positive()) {
+                                numerator = ro.get_lhs_itr().get_interval().lower_bound;
+                                denominator = ro.get_rhs_itr().get_interval().lower_bound;
+                            } else if (ro.get_rhs_itr().get_interval().negative()) {
+                                numerator = ro.get_lhs_itr().get_interval().upper_bound;
+                                denominator = ro.get_rhs_itr().get_interval().upper_bound;
+                            }
+                        }
+
+                        numerator = ro.get_lhs_itr().get_interval().lower_bound;
+                        denominator = ro.get_rhs_itr().get_interval().upper_bound;
+                        quotient = _approximation_interval.lower_bound;
+
+                        quotient = numerator;
+                        quotient.divide_vector(denominator, this->max_precision());
+
+                        residual = quotient * denominator - numerator;
+                        residual.normalize();
+                        quotient.normalize();
+
+                        this->_approximation_interval.lower_bound = quotient;
+
+                        if (residual.abs() > zero) {
+                            this->_approximation_interval.lower_bound.round_down();
+                        }
+
+                    break;
                 }
-
+                
                 default:
                     throw boost::real::none_operation_exception();
             }

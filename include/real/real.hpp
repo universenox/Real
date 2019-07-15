@@ -55,8 +55,6 @@ namespace boost {
          * operator "==" but for those cases where the class is not able to decide the value of the
          * result before reaching the maximum precision, a precision_exception is thrown.
          */
-
-        // T is a user-defined type used in real_algorithm 
         class real {
         private:
 
@@ -100,7 +98,6 @@ namespace boost {
             real(std::initializer_list<int> digits)
                     : _real_p(std::make_shared<real_data>(real_explicit(digits, digits.size())))
                 {};
-
 
             /**
              * @brief *Signed initializer list constructor:* Creates a boost::real::real
@@ -238,6 +235,8 @@ namespace boost {
                 return ret;
             }
 
+            /// @TODO: do we need different ctors to be more efficient? rvalue AND lvalue ref?
+
             /**
              * @brief Sets this real_data to that of the operation between this previous
              * real_data and other real_data.
@@ -246,7 +245,7 @@ namespace boost {
              *
              * @param other - the right side operand boost::real::real number.
              */
-            void operator+=(real& other) {
+            void operator+=(real other) {
                 // do not want to overwrite *this->_real_p if others are pointing to it
                 // if others are pointing to it, point to a copy in newly allocated memory, then create operation 
                 if(this->_real_p.use_count() > 1) {
@@ -273,7 +272,7 @@ namespace boost {
              *
              * @param other - the right side operand boost::real::real number.
              */
-            void operator-=(real& other) {
+            void operator-=(real other) {
                 if(this->_real_p.use_count() > 1) {
                 // if others are pointing to it, point to a copy in newly allocated memory, then create operation 
                     this->_real_p = std::make_shared<real_data>(real_data(*this->_real_p));
@@ -299,7 +298,7 @@ namespace boost {
              *
              * @param other - the right side operand boost::real::real number.
              */
-            void operator*=(real& other) {
+            void operator*=(real other) {
                 if(this->_real_p.use_count() > 1) {
                     this->_real_p = std::make_shared<real_data>(real_data(*this->_real_p));
                 }
@@ -324,7 +323,7 @@ namespace boost {
              *
              * @param other - the right side operand boost::real::real number.
              */
-            void operator/=(real& other) {
+            void operator/=(real other) {
                 if(this->_real_p.use_count() > 1) {
                     this->_real_p = std::make_shared<real_data>(real_data(*this->_real_p));
                 }
@@ -518,7 +517,7 @@ namespace boost {
 }
 
 inline boost::real::real operator "" _r(long double x) {
-    return boost::real::real (std::to_string(x));
+    return boost::real::real(std::to_string(x));
 }
 
 inline boost::real::real operator "" _r(unsigned long long x) {
@@ -528,7 +527,5 @@ inline boost::real::real operator "" _r(unsigned long long x) {
 inline boost::real::real operator "" _r(const char* x, size_t len) {
     return boost::real::real(x);
 }
-
-
 
 #endif //BOOST_REAL_HPP

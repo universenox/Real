@@ -4,14 +4,20 @@
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <math.h>
+#include<type_traits>
 
 namespace boost {
     namespace real {
         struct exact_number {
+            typedef int exponent_t;
+
             std::vector<int> digits = {};
-            int exponent = 0;
+            exponent_t exponent = 0;
             bool positive = true;
 
+            static const int DIGIT_MAX = 9;
+            static const int BASE = 10;
             static bool aligned_vectors_is_lower(const std::vector<int> &lhs, const std::vector<int> &rhs) {
 
                 // Check if lhs is lower than rhs
@@ -174,49 +180,42 @@ namespace boost {
             /// calculates *this / divisor 
             /// 
             ///  @brief a binary-search type method for dividing exact_numbers.
-            ///  @param is_upper true: returns result with an error of +epsilon, while
-            ///                  false: returns result with an error of -epsilon
-            void divide_vector(exact_number divisor, bool is_upper, unsigned int max_precision) {
-                /// @TODO: replace this with something more efficient, like newton-raphson method
+            void divide_vector(exact_number divisor, unsigned int max_precision) {
+                /// @TODO: replace this with something more efficient,
                 // it also completely recalculates on each precision increase
                 // instead, could use previous information to make better "guesses"
                 // for our iteration scheme.
 
-                /// @TODO: convert div by negative exponents 
-                // 1/.001 = 1/(1/1000) = 1000
-                // 1.46 / .12 = 1.46 * 100 * 1/12
-                // 1 / .23 = 1 * 100 * (1/23)
-                // etc.,
-                // after this, no division by 0 < D < 1
                 boost::real::exact_number numerator;
                 boost::real::exact_number left;
                 boost::real::exact_number right;
                 boost::real::exact_number residual;
                 boost::real::exact_number tmp;
-                boost::real::exact_number half;
+                boost::real::exact_number half ({5}, 0);
                 boost::real::exact_number distance;
-                boost::real::exact_number min_boundary_n;
-                boost::real::exact_number min_boundary_p;
+                ///@TODO ensure exponent doesn't overflow
+                boost::real::exact_number min_boundary_n({DIGIT_MAX}, -1 * max_precision, false);
+                boost::real::exact_number min_boundary_p({DIGIT_MAX}, -1 * max_precision);
 
                 bool positive = ((*this).positive == divisor.positive);
                 numerator = (*this).abs();
                 divisor = divisor.abs();
 
-                min_boundary_n.digits = {1};
-                ///@TODO ensure exponent doesn't overflow
-                min_boundary_n.exponent = -1 * (max_precision);
-                min_boundary_n.positive = false;
+                // we ignore exponents, then set them in the end.
+                // (a * 10^x) / (b*10^y) = (a*10 / b*10) * 10^((x-1)-(y-1))
+                // 100/20 -> 1/2 * (10)
+                int exponent_dif = (numerator.exponent - 1) - (divisor.exponent - 1);
 
-                min_boundary_p.digits = {1};
-                min_boundary_p.exponent = -1 * (max_precision);
+                numerator.exponent = 1;
+                divisor.exponent = 1;
 
-                half.digits = {5};
-                half.exponent = 0;
+                // std::cout << "num/den" << numerator.as_string() << ", " << divisor.as_string() << '\n';
 
                 tmp.digits = {1};
                 tmp.exponent = 1;
 
                 if (divisor == tmp) {
+                    this->exponent = exponent_dif + 1;
                     (*this).positive = positive;
                     return;
                 }
@@ -227,83 +226,78 @@ namespace boost {
                     return;
                 }
 
-                ///@TODO: remember signs at the end of this function
-
                 exact_number zero = exact_number(); 
 
-                if (divisor == zero)
+                if (divisor == zero) {
                     throw(boost::real::divide_by_zero());
-                else if ((divisor > zero) && (divisor < tmp)) // 0 < d < 1
-                    throw(boost::real::invalid_denominator());
+                }
+
+                if ((*this) == zero) {
+                    return;
+                }
 
                 // N < D --> 0 < abs(Q) < 1
-                if ((*this) < divisor) {
+                if (numerator < divisor) {
                         left = exact_number(); // 0
                         right = tmp; // 1
                     } else { // assuming D > 1. N > D ---> 1 < N / D < N
                         left = tmp; // 1
-                        right = (*this);
+                        right = numerator;
                     }
-
-                // Example: say we have 144 / 12. At min precision, this is
-                // [100, 200] / [10, 20]
-                // so, our quotient upper bound would be 200/10, and 
-                // the lower bound would be 100/20.
-
-                /// @TODO: the following
-                // if (*this) == 0, return 0 
-                // if divisor == 1, return (*this)
-                // if divisor == 0, throw error
 
                 // distance = (right - left) / 2
                 distance = (right - left) * half;
                 (*this) = left + distance;
-
-                // residual = (*this) * denom - num, equals zero if numerator/divisor = (*this)
+                // N/D = Q -> QD -N = 0
                 residual = (*this) * divisor - numerator;
+                if (residual == 0) {
+                    this->exponent += exponent_dif;
+                    this->positive = positive;
+                    return;
+                }
 
                 // calculate the result
-                // continue the loop while we are still inaccurate (up to max precision), or while
-                // we are on the wrong side of the answer
-                while ((residual.abs() > min_boundary_p) || 
-                        // (is_upper && (residual < min_boundary_n)) || (!is_upper && (residual > min_boundary_p))) &&
-                        (distance.exponent > min_boundary_p.exponent)) {
-                    /// TODO: we might exit the loop early due to the last statement. 
-                    /// Verify our answers are within +- epsilon of the solution.
+                // continue the loop while we are still inaccurate (up to max precision)
 
-                    // result too small, try halfway between (*this) and (*this) 
+                // we would prefer to use || than &&, but we get problems because ||
+                // statement may never evaluate to false. Again, we must look more closely at precision
+                // if we use && (to always terminate in n steps), then we must 
+                // verify our answers are within +- epsilon of the solution.
+                while ((residual.abs() > min_boundary_p) && 
+                       (distance.exponent >= min_boundary_p.exponent)) {
+                    // result too small, try halfway between left and (*this) 
                     if (residual < min_boundary_n) {
                         left = (*this);
                     }
+
                     // distance is halved
                     distance = half * distance;
                     distance.normalize();
 
                     // truncate insignificant digits of distance
-                    // NOTE: The loop will not terminate if you truncate too much, for certain
-                    // divisions. 5 seems to work well, so I'm leaving it as that.
-                    // we may want to look at this in closer detail
-                    while (distance.size() > max_precision + 5)
+                    while (distance.size() > max_precision + 1) {
                         distance.digits.pop_back();
+                    }
 
                     // iterate (*this)
                     (*this) = left + distance;
 
                     // truncate insignificant digits of (*this)
-                    while ((*this).size() > max_precision + 5)
+                    while ((*this).size() > max_precision + 1) {
                         (*this).digits.pop_back();
+                    }
 
                     // recalculate residual  N/D = Q ---> QD - N = residual
                     residual = ((*this) * divisor) - numerator;
                     residual.normalize();
                 } // end while
-                // now (*this) is correct, or at least within +-epsilon of correct value 
+                // at this point, we may have exited early. we should be within +- min_boundary_p of the solution.
+                
                 // truncate (*this)
                 this->normalize();
-
-                while ((*this).size() > max_precision)
+                while ((*this).size() > max_precision) {
                     (*this).digits.pop_back();
-
+                }
 
                 // recalculate residual for the final (*this) value
                 exact_number residual_o = ((*this) * divisor) - numerator;
@@ -321,51 +315,59 @@ namespace boost {
                     residual = tmp_lower * divisor - numerator;
                     residual.normalize();
 
-                    if (residual == zero) {
+                    if (residual == zero) { // rounded lower is better
                         (*this) = tmp_lower;
 
-                        if (positive)
+                        if (positive) {
                             (*this).positive = true;
-                        else
+                        }
+                        else {
                             (*this).positive = false;
+                        }
 
                         (*this).normalize();
+                        this->exponent += exponent_dif;
                         return;
                     } 
-
 
                     residual = tmp_upper * divisor - numerator;
                     residual.normalize();
 
-                    if (residual == zero) {
+                    if (residual == zero) { // rounded up is better
                         (*this) = tmp_upper;
 
-                        if (positive)
+                        if (positive) {
                             (*this).positive = true;
-                        else
+                        }
+                        else {
                             (*this).positive = false;
+                        }
 
                         (*this).normalize();
+                        this->exponent += exponent_dif;
                         return;
                     }
                     // at this point, it is impossible to make the residual 0
-                    if (is_upper)
-                        (*this) = tmp_upper;
-                } else { // residual_o == 0
-                    if (positive)
-                        (*this).positive = true;
-                    else
-                        (*this).positive = false;
-                    (*this).normalize();
+                } // else old residual == 0
+
+                if (positive) {
+                    (*this).positive = true;
                 }
+                else {
+                    (*this).positive = false;
+                }
+
+                this->exponent += exponent_dif;
+                (*this).normalize();
             }
 
-            void round_up() {
+
+            void round_up_abs() {
                 int index = digits.size() - 1;
                 bool keep_carrying = true;
 
                 while((index > 0) && keep_carrying) { // bring the carry back
-                    if(this->digits[index] != 9) {
+                    if(this->digits[index] != DIGIT_MAX) {
                         ++this->digits[index];
                         keep_carrying = false;
                     } else // digits[index] == 9, we keep carrying
@@ -374,7 +376,7 @@ namespace boost {
                 }
 
                 if ((index == 0) && keep_carrying) { // i.e., .999 should become 1.000
-                    if(this->digits[index] == 9) {
+                    if(this->digits[index] == DIGIT_MAX) {
                         this->digits[index] = 0;
                         this->push_front(1);
                         ++this->exponent;
@@ -384,7 +386,17 @@ namespace boost {
                 }
             }
 
+            void round_up() {
+                if (positive)
+                    this->round_up_abs();
+            }
+
             void round_down() {
+                if (!positive)
+                    this->round_up_abs();
+            }
+
+            void round_down_abs() {
                 int index = digits.size() - 1;
                 bool keep_carrying = true;
 
@@ -393,7 +405,7 @@ namespace boost {
                         --this->digits[index];
                         keep_carrying = false;
                     } else // digits[index] == 0, we keep carrying
-                        this->digits[index] = 9;
+                        this->digits[index] = DIGIT_MAX;
                     --index;
                 }
                 // we should be ok at this point because the first number in digits should != 0
@@ -408,6 +420,28 @@ namespace boost {
 
             /// ctor from vector of digits, integer exponent, and optional bool positive
             exact_number(std::vector<int> vec, int exp, bool pos = true) : digits(vec), exponent(exp), positive(pos) {};
+
+
+            // exact_number(std::initializer_list<int> list, int exp, bool pos= true) :
+                // digits(list), exponent(exp), positive(pos) {};
+
+            /// ctor from any integral type
+            template<typename I>
+            exact_number(I x) {
+                static_assert(std::numeric_limits<I>::is_integer);
+
+                if (x < 0)
+                    positive = false;
+                else
+                    positive = true;
+                
+                exponent = 0;
+                while (((x % BASE) != 0) || (x != 0)) {
+                    exponent++;
+                    push_front(std::abs(x%BASE));
+                    x /= BASE;
+                }
+            }
 
             /**
              * @brief *Copy constructor:* It constructs a new boost::real::exact_number that is a copy of the
@@ -435,14 +469,10 @@ namespace boost {
              */
             bool operator<(const exact_number& other) const {
                 std::vector<int> zero = {0};
-                std::vector<int> empty = {};
-                if (this->digits == zero || this->digits == empty) {
-                    if (other.digits == zero || !other.positive || other.digits == empty)
-                        return false;
-                    else
-                        return true;
+                if (this->digits == zero || this->digits.empty()) {
+                    return !(other.digits == zero || !other.positive || other.digits.empty());
                 } else {
-                    if ((other.digits == zero || other.digits == empty) && !this->positive)
+                    if ((other.digits == zero || other.digits.empty()) && !this->positive)
                         return true;
                 }
 
@@ -474,14 +504,10 @@ namespace boost {
              */
             bool operator>(const exact_number& other) const {
                 std::vector<int> zero = {0};
-                std::vector<int> empty = {};
-                if (this->digits == zero || this->digits == empty) {
-                    if (other.digits == zero || other.positive || other.digits == empty)
-                        return false;
-                    else
-                        return true;
+                if (this->digits == zero || this->digits.empty()) {
+                    return !(other.digits == zero || other.positive || other.digits.empty());
                 } else {
-                    if ((other.digits == zero || other.digits == empty) && this->positive)
+                    if ((other.digits == zero || other.digits.empty()) && this->positive)
                         return true;
                 }
 
@@ -504,6 +530,14 @@ namespace boost {
                 return other.exponent > this->exponent;
             }
 
+            bool operator>=(const exact_number& other) const {
+                return (((*this) == other) || ((*this) > other));
+            }
+
+            bool operator<=(const exact_number& other) const {
+                return (((*this) == other) || ((*this) < other));
+            }
+
             /**
              * @brief *Equality comparator operator:* It compares the *this boost::real::exact_number with the other
              * boost::real::exact_number to determine if *this and other are equals or not.
@@ -518,8 +552,6 @@ namespace boost {
             bool operator!=(const exact_number& other) const {
                 return !(*this == other);
             }
-
-
 
             exact_number abs() {
                 exact_number result = (*this);
@@ -578,10 +610,9 @@ namespace boost {
                 return result;
             }
 
-            void operator*=(exact_number &other) {
+            void operator*=(exact_number other) {
                 *this = *this * other;
             }
-
 
             /**
              * @brief Generates a string representation of the boost::real::exact_number.
@@ -730,6 +761,13 @@ namespace boost {
                 return this->digits.size();
             }
 
+            bool is_integral() { 
+                if (exponent < 0)
+                    return false;
+                else
+                    /// @TODO: ensure it doesn't overflow
+                    return (exponent_t)digits.size() <= exponent;
+            }
         };
     }
 }
