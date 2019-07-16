@@ -250,7 +250,7 @@ namespace boost {
                 (*this) = left + distance;
                 // N/D = Q -> QD -N = 0
                 residual = (*this) * divisor - numerator;
-                if (residual == 0) {
+                if (residual == zero) {
                     this->exponent += exponent_dif;
                     this->positive = positive;
                     return;
@@ -421,15 +421,9 @@ namespace boost {
             /// ctor from vector of digits, integer exponent, and optional bool positive
             exact_number(std::vector<int> vec, int exp, bool pos = true) : digits(vec), exponent(exp), positive(pos) {};
 
-
-            // exact_number(std::initializer_list<int> list, int exp, bool pos= true) :
-                // digits(list), exponent(exp), positive(pos) {};
-
             /// ctor from any integral type
-            template<typename I>
+            template<typename I, typename std::enable_if_t<std::is_integral<I>::value>>
             exact_number(I x) {
-                static_assert(std::numeric_limits<I>::is_integer);
-
                 if (x < 0)
                     positive = false;
                 else
@@ -442,6 +436,60 @@ namespace boost {
                     x /= BASE;
                 }
             }
+
+            explicit exact_number (const std::string& number) {
+                std::regex decimal("((\\+|-)?[[:digit:]]*)(\\.(([[:digit:]]+)?))?((e|E)(((\\+|-)?)[[:digit:]]+))?");
+                if (!std::regex_match (number, decimal))
+                    throw boost::real::invalid_string_number_exception();
+                //Know at this point that representation is valid
+                std::string decimal_part = regex_replace(number, decimal, "$5");
+                std::string integer_part = regex_replace(number, decimal, "$1");
+                std::string exp = regex_replace(number, decimal, "$8");
+                int add_exponent = exp.length() == 0 ? 0 : std::stoi(exp);
+                if (integer_part[0] == '+') {
+                    positive = true;
+                    integer_part = integer_part.substr(1);
+                }
+                else if (integer_part[0] == '-') {
+                    positive = false;
+                    integer_part = integer_part.substr(1);
+                }
+                integer_part = regex_replace(integer_part, std::regex("(0?+)([[:digit:]]?+)"), "$2");
+                size_t i = decimal_part.length() - 1;
+                while (decimal_part[i] == '0' && i > 0) {
+                    --i;
+                }
+                decimal_part = decimal_part.substr(0, i + 1);
+                //decimal and integer parts are stripped of zeroes
+                int exponent = integer_part.length() + add_exponent;
+                if (decimal_part.empty()) {
+                    i = integer_part.length() - 1;
+                    while (integer_part[i] == '0' && i > 0)
+                        --i;
+                    integer_part = integer_part.substr(0, i + 1);
+                }
+                if (integer_part.empty()) {
+                    i = 0;
+                    while (decimal_part[i] == '0' && i < decimal_part.length()) {
+                        ++i;
+                        --exponent;
+                    }
+                    decimal_part = decimal_part.substr(i);
+                }
+                if (integer_part.empty() && decimal_part.empty()) {
+                    digits = {0};
+                    exponent = 0;
+                    return;
+                }
+                exponent = exponent;
+                for (const auto& c : integer_part ) {
+                    digits.push_back(c - '0');
+                }
+                for (const auto& c : decimal_part ) {
+                    digits.push_back(c - '0');
+                }
+            }           
+
 
             /**
              * @brief *Copy constructor:* It constructs a new boost::real::exact_number that is a copy of the

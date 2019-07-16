@@ -58,6 +58,12 @@ namespace boost {
                 return "The divisor approximation interval contains 0, so the quotient is unbounded";
             }
         };
+
+        struct pi_precision_exception : public std::exception {
+            const char * what () const throw () override {
+                return "pi is currently undefined for precision > 1000 digits";
+            }
+        };
     }
 }
 
