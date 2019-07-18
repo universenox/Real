@@ -810,6 +810,8 @@ namespace boost {
 
             /// returns an exact_number that has the precision given
             exact_number up_to(size_t precision, bool upper) {
+                if (precision >= digits.size())
+                    return *this;
 
                 exact_number ret = *this;
                 ret.digits = std::vector(digits.begin(), digits.begin() + precision);
