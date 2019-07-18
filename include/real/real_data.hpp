@@ -49,22 +49,22 @@ namespace boost {
         void const_precision_iterator::update_operation_boundaries(real_operation &ro) {
             switch (ro.get_operation()) {
                 case OPERATION::ADDITION:
-                        this->_approximation_interval.lower_bound = ro.get_lhs_itr().get_interval().lower_bound +
-                                                                    ro.get_rhs_itr().get_interval().lower_bound;
+                        this->_approximation_interval.lower_bound = ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false) +
+                                                                    ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
 
-                        this->_approximation_interval.upper_bound = ro.get_lhs_itr().get_interval().upper_bound +
-                                                                    ro.get_rhs_itr().get_interval().upper_bound;
+                        this->_approximation_interval.upper_bound = ro.get_lhs_itr().get_interval().upper_bound.up_to(_precision, true) +
+                                                                    ro.get_rhs_itr().get_interval().upper_bound.up_to(_precision, true);
                     break;
 
 
                 case OPERATION::SUBTRACTION:
                         this->_approximation_interval.lower_bound =
-                            ro.get_lhs_itr().get_interval().lower_bound -
-                            ro.get_rhs_itr().get_interval().upper_bound;
+                            ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false) -
+                            ro.get_rhs_itr().get_interval().upper_bound.up_to(_precision, true);
 
                         this->_approximation_interval.upper_bound =
-                            ro.get_lhs_itr().get_interval().upper_bound -
-                            ro.get_rhs_itr().get_interval().lower_bound;
+                            ro.get_lhs_itr().get_interval().upper_bound.up_to(_precision, true) -
+                            ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
                     break;
 
                 case OPERATION::MULTIPLICATION: {
@@ -75,38 +75,38 @@ namespace boost {
 
                     if (lhs_positive && rhs_positive) { // Positive - Positive
                                 this->_approximation_interval.lower_bound = 
-                                    ro.get_lhs_itr().get_interval().lower_bound *
-                                    ro.get_rhs_itr().get_interval().lower_bound;
+                                    ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false) *
+                                    ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
 
                                 this->_approximation_interval.upper_bound =
-                                    ro.get_lhs_itr().get_interval().upper_bound *
-                                    ro.get_rhs_itr().get_interval().upper_bound;
+                                    ro.get_lhs_itr().get_interval().upper_bound.up_to(_precision, true) *
+                                    ro.get_rhs_itr().get_interval().upper_bound.up_to(_precision, true);
 
                     } else if (lhs_negative && rhs_negative) { // Negative - Negative
                                 this->_approximation_interval.lower_bound = 
-                                    ro.get_lhs_itr().get_interval().upper_bound *
-                                    ro.get_rhs_itr().get_interval().upper_bound;
+                                    ro.get_lhs_itr().get_interval().upper_bound.up_to(_precision, true) *
+                                    ro.get_rhs_itr().get_interval().upper_bound.up_to(_precision, true);
 
                                 this->_approximation_interval.upper_bound =
-                                    ro.get_lhs_itr().get_interval().lower_bound *
-                                    ro.get_rhs_itr().get_interval().lower_bound;
+                                    ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false) *
+                                    ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
                     } else if (lhs_negative && rhs_positive) { // Negative - Positive
                                 this->_approximation_interval.lower_bound =
-                                    ro.get_lhs_itr().get_interval().lower_bound *
-                                    ro.get_rhs_itr().get_interval().upper_bound;
+                                    ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false) *
+                                    ro.get_rhs_itr().get_interval().upper_bound.up_to(_precision, true);
 
                                 this->_approximation_interval.upper_bound =
-                                    ro.get_lhs_itr().get_interval().upper_bound *
-                                    ro.get_rhs_itr().get_interval().lower_bound;
+                                    ro.get_lhs_itr().get_interval().upper_bound.up_to(_precision, true) *
+                                    ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
 
                     } else if (lhs_positive && rhs_negative) { // Positive - Negative
                                 this->_approximation_interval.lower_bound =
-                                    ro.get_lhs_itr().get_interval().upper_bound *
-                                    ro.get_rhs_itr().get_interval().lower_bound;
+                                    ro.get_lhs_itr().get_interval().upper_bound.up_to(_precision, true) *
+                                    ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
 
                                 this->_approximation_interval.upper_bound =
-                                    ro.get_lhs_itr().get_interval().lower_bound *
-                                    ro.get_rhs_itr().get_interval().upper_bound;
+                                    ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false) *
+                                    ro.get_rhs_itr().get_interval().upper_bound.up_to(_precision, true);
 
                     } else { // One is around zero all possible combinations are be tested
 
@@ -114,19 +114,19 @@ namespace boost {
 
                         // Lower * Lower
                                 current_boundary = 
-                                    ro.get_lhs_itr().get_interval().lower_bound *
-                                    ro.get_rhs_itr().get_interval().lower_bound;
+                                    ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false) *
+                                    ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
 
                         this->_approximation_interval.lower_bound = current_boundary;
                         this->_approximation_interval.upper_bound = current_boundary;
 
                         // Upper * upper
                                 current_boundary = 
-                                ro.get_lhs_itr().get_interval().upper_bound *
-                                ro.get_rhs_itr().get_interval().upper_bound;
+                                ro.get_lhs_itr().get_interval().upper_bound.up_to(_precision, true) *
+                                ro.get_rhs_itr().get_interval().upper_bound.up_to(_precision, true);
 
                         if (current_boundary < this->_approximation_interval.lower_bound) {
-                            this->_approximation_interval.lower_bound = current_boundary;
+                            this->_approximation_interval.lower_bound.up_to(_precision, false) = current_boundary;
                         }
 
                         if (this->_approximation_interval.upper_bound < current_boundary) {
@@ -135,10 +135,10 @@ namespace boost {
 
                         // Lower * upper
                                 current_boundary =
-                                ro.get_lhs_itr().get_interval().lower_bound *
-                                ro.get_rhs_itr().get_interval().upper_bound;
+                                ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false) *
+                                ro.get_rhs_itr().get_interval().upper_bound.up_to(_precision, true);
 
-                        if (current_boundary < this->_approximation_interval.lower_bound) {
+                        if (current_boundary < this->_approximation_interval.lower_bound.up_to(_precision, false)) {
                             this->_approximation_interval.lower_bound = current_boundary;
                         }
 
@@ -148,10 +148,10 @@ namespace boost {
 
                         // Upper * lower
                                 current_boundary =
-                                    ro.get_lhs_itr().get_interval().upper_bound *
-                                    ro.get_rhs_itr().get_interval().lower_bound;
+                                    ro.get_lhs_itr().get_interval().upper_bound.up_to(_precision, true) *
+                                    ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
 
-                        if (current_boundary < this->_approximation_interval.lower_bound) {
+                        if (current_boundary < this->_approximation_interval.lower_bound.up_to(_precision, false)) {
                             this->_approximation_interval.lower_bound = current_boundary;
                         }
 
@@ -184,27 +184,27 @@ namespace boost {
                         // first, the upper boundary
                         if (ro.get_lhs_itr().get_interval().positive()) {
                             if (ro.get_rhs_itr().get_interval().positive()) {
-                                numerator = ro.get_lhs_itr().get_interval().upper_bound;
-                                denominator = ro.get_rhs_itr().get_interval().lower_bound;
+                                numerator = ro.get_lhs_itr().get_interval().upper_bound.up_to(_precision, true);
+                                denominator = ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
                             } else { 
-                                numerator = ro.get_lhs_itr().get_interval().lower_bound;
-                                denominator = ro.get_rhs_itr().get_interval().upper_bound;
+                                numerator = ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false);
+                                denominator = ro.get_rhs_itr().get_interval().upper_bound.up_to(_precision, true);
                             }
                         } else if (ro.get_lhs_itr().get_interval().negative()) {
                             if (ro.get_rhs_itr().get_interval().positive()) {
-                                numerator = ro.get_lhs_itr().get_interval().upper_bound;
-                                denominator = ro.get_rhs_itr().get_interval().lower_bound;
+                                numerator = ro.get_lhs_itr().get_interval().upper_bound.up_to(_precision, true);
+                                denominator = ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
                             } else if (ro.get_rhs_itr().get_interval().negative()) {
-                                numerator = ro.get_lhs_itr().get_interval().lower_bound;
-                                denominator = ro.get_rhs_itr().get_interval().upper_bound;
+                                numerator = ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false);
+                                denominator = ro.get_rhs_itr().get_interval().upper_bound.up_to(_precision, true);
                             }
                         } else {
                             if (ro.get_rhs_itr().get_interval().positive()) {
-                                numerator = ro.get_lhs_itr().get_interval().upper_bound;
-                                denominator = ro.get_rhs_itr().get_interval().upper_bound;
+                                numerator = ro.get_lhs_itr().get_interval().upper_bound.up_to(_precision, true);
+                                denominator = ro.get_rhs_itr().get_interval().upper_bound.up_to(_precision, true);
                             } else if (ro.get_rhs_itr().get_interval().negative()) {
-                                numerator = ro.get_lhs_itr().get_interval().lower_bound;
-                                denominator = ro.get_rhs_itr().get_interval().lower_bound;
+                                numerator = ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false);
+                                denominator = ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
                             }
                         }
 
@@ -237,33 +237,29 @@ namespace boost {
                         // lower boundary
                         if (ro.get_lhs_itr().get_interval().positive()) {
                             if (ro.get_rhs_itr().get_interval().positive()) {
-                                numerator = ro.get_lhs_itr().get_interval().lower_bound;
+                                numerator = ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false);
                                 denominator = ro.get_rhs_itr().get_interval().upper_bound;
                             } else { 
                                 numerator = ro.get_lhs_itr().get_interval().upper_bound;
-                                denominator = ro.get_rhs_itr().get_interval().lower_bound;
+                                denominator = ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
                             }
                         } else if (ro.get_lhs_itr().get_interval().negative()) {
                             if (ro.get_rhs_itr().get_interval().positive()) {
-                                numerator = ro.get_lhs_itr().get_interval().lower_bound;
+                                numerator = ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false);
                                 denominator = ro.get_rhs_itr().get_interval().upper_bound;
                             } else if (ro.get_rhs_itr().get_interval().negative()) {
                                 numerator = ro.get_lhs_itr().get_interval().upper_bound;
-                                denominator = ro.get_rhs_itr().get_interval().lower_bound;
+                                denominator = ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
                             }
                         } else {
                             if (ro.get_rhs_itr().get_interval().positive()) {
-                                numerator = ro.get_lhs_itr().get_interval().lower_bound;
-                                denominator = ro.get_rhs_itr().get_interval().lower_bound;
+                                numerator = ro.get_lhs_itr().get_interval().lower_bound.up_to(_precision, false);
+                                denominator = ro.get_rhs_itr().get_interval().lower_bound.up_to(_precision, false);
                             } else if (ro.get_rhs_itr().get_interval().negative()) {
                                 numerator = ro.get_lhs_itr().get_interval().upper_bound;
                                 denominator = ro.get_rhs_itr().get_interval().upper_bound;
                             }
                         }
-
-                        numerator = ro.get_lhs_itr().get_interval().lower_bound;
-                        denominator = ro.get_rhs_itr().get_interval().upper_bound;
-                        quotient = _approximation_interval.lower_bound;
 
                         quotient = numerator;
                         quotient.divide_vector(denominator, this->max_precision());
@@ -284,22 +280,10 @@ namespace boost {
                 default:
                     throw boost::real::none_operation_exception();
             }
+
         }
 
-        // remember to update afterwards
-        // inits the precision of the real_operation, depending on those of its operands, to either
-        // cbegin or cend.
-        void const_precision_iterator::init_operation_itr(real_operation &ro, bool cend){
-            if (cend) {
-                ro.get_lhs_itr() = const_precision_iterator(ro.get_lhs_itr().cend());
-                ro.get_rhs_itr() = const_precision_iterator(ro.get_rhs_itr().cend());
-            } else {
-                ro.get_lhs_itr() = const_precision_iterator(ro.get_lhs_itr().cbegin());
-                ro.get_rhs_itr() = const_precision_iterator(ro.get_rhs_itr().cbegin());
-            }
-        }
-
-        void const_precision_iterator::operation_iterate_n_times(real_operation &ro, int n) {
+            void const_precision_iterator::operation_iterate_n_times(real_operation &ro, int n) {
             /// @warning there could be issues if operands have different precisions/max precisions
 
             if (ro.get_lhs_itr()._precision < this->_precision + n)
@@ -312,24 +296,6 @@ namespace boost {
 
             update_operation_boundaries(ro);
         }
-
-        void const_precision_iterator::operation_iterate(real_operation &ro) {
-            // only iterate if we must. If operand precision < this precision, then it must have
-            // hit its maximum_precision. If operand precision == this precision, we try iterating. Otherwise,
-            // it is == this->_precision + 1 (from being iterated elsewhere in the operation tree) and
-            // we do not iterate again.
-
-            if (ro.get_lhs_itr()._precision == this->_precision)
-                ++(ro.get_lhs_itr());
-            
-            if (ro.get_rhs_itr()._precision == this->_precision)
-                ++(ro.get_rhs_itr());
-
-            (this->_precision)++;
-
-            update_operation_boundaries(ro);
-        }
-
         /* real_operation member functions */
 
         // note that we return a reference. It is necessary, for now, since iterating operands 

@@ -386,6 +386,7 @@ namespace boost {
                 }
             }
 
+            // these may not be names very aptly... we round_up() the upper_bounds, and round_down() the lower_bounds.
             void round_up() {
                 if (positive)
                     this->round_up_abs();
@@ -805,6 +806,24 @@ namespace boost {
              */
             unsigned long size() {
                 return this->digits.size();
+            }
+
+            /// returns an exact_number that has the precision given
+            exact_number up_to(size_t precision, bool upper) {
+
+                exact_number ret = *this;
+                ret.digits = std::vector(digits.begin(), digits.begin() + precision);
+
+                bool round = (precision < digits.size());
+                if (round) {
+                    if(upper) {
+                        ret.round_up();
+                    } else {
+                        ret.round_down();
+                    }
+                }
+
+                return ret;
             }
 
             bool is_integral() { 
