@@ -347,7 +347,8 @@ namespace boost {
                             }
 
                             real<T> a_op_b;
-
+                            
+                            /// TODO: use some flag to avoid recursion, we only need to add with distribution on the top nodes.
                             if(op == OPERATION::ADDITION) {
                                 a_op_b = real(a) + real(b);
                             }

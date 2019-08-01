@@ -41,8 +41,9 @@ matrix:
           # '-f' specifies file(s) to use and disables manual coverage gathering and file search which has already been done above
           - bash <(curl -s https://codecov.io/bash) -f coverage.info || echo "Codecov did not collect coverage reports"
     - os: osx
-      osx_image: xcode10
+      osx_image: xcode11
       env:
+          - MATRIX_EVAL="brew install gcc && CC=gcc-7 && CXX=g++-7"
       before_install:
           - brew install lcov
       after_success:
@@ -54,8 +55,6 @@ matrix:
           # Uploading report to CodeCov
           - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
 
-  allow_failures:
-          - os: osx
 
 script:
-  - cmake -DCMAKE_BUILD_TYPE=Debug -DREAL_BENCH=OFF && cmake --build . && ctest -C Debug --output-on-failure
+  - cmake -DCMAKE_BUILD_TYPE=Debug -DREAL_BENCH=OFF . && cmake --build . && ctest -C Debug --output-on-failure
