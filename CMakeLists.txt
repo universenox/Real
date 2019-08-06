@@ -7,7 +7,9 @@ set (Boost.Real_VERSION_MINOR 0)
 IF(CMAKE_BUILD_TYPE MATCHES Debug)
     message("debug mode adding coverage report tools and flags")
     list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake-modules")
-    include(CodeCoverage)
+    if (UNIX) # codecov not used in windows, mingw currently doesn't support gcov
+        include(CodeCoverage)
+    endif(UNIX)
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS_DEBUG} -Wall -g -O0 -fsanitize=address -fno-omit-frame-pointer -fprofile-arcs -ftest-coverage")
 ENDIF(CMAKE_BUILD_TYPE MATCHES Debug)
 
@@ -38,7 +40,7 @@ if(REAL_TEST)
     enable_testing()
     #Detect Boost.Test framework
     set(Boost_USE_MULTITHREADED OFF)
-    find_package(Boost COMPONENTS unit_test_framework REQUIRED)
+    find_package(Boost COMPONENTS system filesystem unit_test_framework REQUIRED)
     add_subdirectory(test)
 endif()
 

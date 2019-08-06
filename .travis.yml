@@ -54,7 +54,10 @@ matrix:
           - lcov --list coverage.info #debug info
           # Uploading report to CodeCov
           - bash <(curl -s https://codecov.io/bash) || echo "Codecov did not collect coverage reports"
-
+    - os: windows
+      install: 
+        - choco install mingw
+        - choco install boost-msvc-12 
 
 script:
   - cmake -DCMAKE_BUILD_TYPE=Debug -DREAL_BENCH=OFF . && cmake --build . && ctest -C Debug --output-on-failure
