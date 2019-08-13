@@ -16,46 +16,42 @@
 
 namespace boost {
     namespace real{
-    /**
-     * @file The const_precision_iterator provides the functionality to iterate through precision intervals
-     * of all three kinds of reals
-     * 
-     * @note variant and visit/visitors are used extensively in this implementation
-     * @TODO: consider doing traversals to lower the demands of recursion
-     * @sa documention on std::variant, std::visit
-     */
+        // used in visitors
         template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
         template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
+
         // fwd decl
         template <typename T>
         class real;
 
+        /// a real_number is a variant of the three main underlying types @ref real.hpp
         template <typename T>
         using real_number = std::variant<std::monostate, real_explicit<T>, real_algorithm<T>, real_operation<T>>;
         using precision_t = size_t;
 
-        /// the default max precision to use if the user hasn't provided one.
         const precision_t DEFAULT_MAXIMUM_PRECISION = 10;
 
+        /**
+         * The const_precision_iterator provides the functionality to iterate through precision intervals
+         * of all three kinds of reals
+         *
+         * @todo consider doing traversals to lower the demands of recursion
+         * @sa documention on std::variant, std::visit
+         * @todo some precision stuff is currently undefined behavior, i.e., operations between numbers
+         *       with different precisions.
+         */
         template <typename T>
         class const_precision_iterator {
-            public:
-            /**
-             * @brief Optional user-provided maximum precision for all const_precision_iterators. 
-             */
-
-            inline static std::optional<precision_t> global_maximum_precision;
-            /// @TODO look into STL-style iterators
+            /// @todo look into STL-style iterators
             // typedef std::forward_iterator_tag iterator_category;
             // typedef void difference_type (?);
             // typedef ??? value_type
             // typedef const value_type& reference (?) not necessary because const
             // typedef const value_type* pointer
-
             private:
                 /**
                  * @brief this holds a ptr to explicit number, algorithmic number, or real_operation
-                 */ 
+                 */
                 // raw pointer here is ok, precision iterator is always attached to the variant it points to
                 // (refer to real_data.hpp). Any time the variant is destroyed, so is this pointer.
                 real_number<T> * _real_ptr;
@@ -66,11 +62,19 @@ namespace boost {
                 /// local max precision, is used if set to > 0 by user
                 precision_t _maximum_precision = 0;
 
+                /**
+                 * @brief Optional user-provided maximum precision for all const_precision_iterators.
+                 */
+                static inline std::optional<precision_t> global_maximum_precision;
+
+                /**
+                 * @brief Contains the lower and upper bounds of the underlying real number, for precision = @ref _precision.
+                 */
                 interval<T> _approximation_interval;
 
                 void check_and_swap_boundaries() {
                     std::visit( overloaded { // perform operation on whatever is held in variant
-                        [this] (real_explicit<T>& real) { 
+                        [this] (real_explicit<T>& real) {
                             if (!real.positive()) {
                             this->_approximation_interval.swap_bounds();
                             }
@@ -99,19 +103,25 @@ namespace boost {
                  *
                  * @details The user may set the maximum precision for any specific precision iterator.
                  * They may also set a general maximum precision (the static optional value).
-                 * Preference is given: _maximum_precision > maximum_precision > DEFAULT_MAXIMUM_PRECISION
+                 * Preference is given: _maximum_precision > global_maximum_precision > DEFAULT_MAXIMUM_PRECISION
                  */
                 precision_t maximum_precision() const {
-                    if((_maximum_precision == 0) && !(global_maximum_precision))
+                    if((_maximum_precision == 0) && !(const_precision_iterator::global_maximum_precision))
                         return DEFAULT_MAXIMUM_PRECISION;
                     else if (_maximum_precision == 0)
-                        return global_maximum_precision.value();
+                        return const_precision_iterator::global_maximum_precision.value();
                     else
                         return _maximum_precision;
                 }
 
+                /// @brief sets the local maximum precision
                 void set_maximum_precision(precision_t maximum_precision) {
                     this->_maximum_precision = maximum_precision;
+                }
+
+                /// @brief sets the global maximum precision
+                static void set_global_maximum_precision(precision_t maximum_precision) {
+                    global_maximum_precision = maximum_precision;
                 }
 
                 /**
@@ -134,7 +144,7 @@ namespace boost {
 
                 /**
                  * @brief Constructor for the least precise precision iterator
-                 */ 
+                 */
                 explicit const_precision_iterator(real_number<T> * a) : _real_ptr(a), _precision(1) {
                     std::visit( overloaded { // perform operation on whatever is held in variant
                         [this] (real_explicit<T>& real) {
@@ -249,7 +259,7 @@ namespace boost {
                  */
                 void operator++() {
                     std::visit( overloaded { // perform operation on whatever is held in variant
-                        [this] (real_explicit<T>& real) { 
+                        [this] (real_explicit<T>& real) {
                             this->iterate_n_times(1);
                         },
                         [this] (real_algorithm<T>& real) {
@@ -266,7 +276,7 @@ namespace boost {
 
                 void iterate_n_times(int n) {
                     std::visit( overloaded { // perform operation on whatever is held in variant
-                        [this, &n] (real_explicit<T>& real) { 
+                        [this, &n] (real_explicit<T>& real) {
                             if (this->_precision >= real.digits().size()) {
                                 return;
                             }
@@ -394,6 +404,6 @@ namespace boost {
                 }
         };
     }
-} 
+}
 
 #endif // BOOST_CONST_PRECISION_ITERATOR_HPP

@@ -119,6 +119,9 @@ namespace boost {
                 return this->lower_bound == this->upper_bound;
             }
 
+            /**
+             * @brief prints the interval to the ostream
+             */
             friend std::ostream& operator<<(std::ostream& os, const boost::real::interval<T>& interval) {
                 return os << interval.as_string();
             }

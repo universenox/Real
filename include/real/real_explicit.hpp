@@ -25,9 +25,8 @@ namespace boost {
         class real_explicit {
 
             // Number representation as a vector of digits with an integer part and a sign (+/-)
-            // TODO: Add normalizations to the constructors
             exact_number<T> explicit_number;
-            
+
         public:
 
             /**
@@ -69,46 +68,46 @@ namespace boost {
                 }
                 std::reverse(base.begin(), base.end());
                 int curr_size = explicit_number.digits.size();
-                
+
                 for (int i = 0; i<explicit_number.exponent-curr_size; ++i) {
                     explicit_number.digits.push_back(0);
                 }
-                
+
                 while (explicit_number.digits.size() > 1) {
                     std::vector<T> quotient;
                     std::vector<T> rem = op.long_divide_vectors(explicit_number.digits, base, quotient);
                     if (rem.empty()) {
                         explicit_number.digits = quotient;
-                        ++exponent; 
+                        ++exponent;
                     }
                     else
                         break;
                 }
-                
+
                 std::vector<T> new_digits;
                 while (!explicit_number.digits.empty()) {
                     std::vector<T> quotient;
                     //std::vector<T> rem;
                     std::vector<T> rem = op.long_divide_vectors(explicit_number.digits, base, quotient);
                     T result = 0;
-                    for (auto d : rem)  
+                    for (auto d : rem)
                     {
                         result = result * 10 + d;
                     }
-                    
+
                     new_digits.push_back(result);
                     explicit_number.digits = quotient;
                 }
-                
+
                 std::reverse (new_digits.begin(), new_digits.end());
                 exponent += (int)new_digits.size();
                 explicit_number.digits = new_digits;
                 explicit_number.exponent = exponent;
             }
-            
+
             constexpr explicit real_explicit(std::string_view number) {
                 auto [integer_part, decimal_part, exponent, positive] = exact_number<>::number_from_string((std::string_view)number);
-                
+
                 if (integer_part.empty() && decimal_part.empty()) {
                     explicit_number.digits = {0};
                     explicit_number.exponent = 0;
@@ -134,42 +133,42 @@ namespace boost {
                 }
                 std::reverse(base.begin(), base.end());
                 int curr_size = explicit_number.digits.size();
-                
+
                 for (int i = 0; i<explicit_number.exponent-curr_size; ++i) {
                     explicit_number.digits.push_back(0);
                 }
-                
+
                 while (explicit_number.digits.size() > 1) {
                     std::vector<T> quotient;
                     std::vector<T> rem = op.long_divide_vectors(explicit_number.digits, base, quotient);
                     if (rem.empty()) {
                         explicit_number.digits = quotient;
-                        ++exponent; 
+                        ++exponent;
                     }
                     else
                         break;
                 }
-                
+
                 std::vector<T> new_digits;
                 while (!explicit_number.digits.empty()) {
                     std::vector<T> quotient;
                     //std::vector<T> rem;
                     std::vector<T> rem = op.long_divide_vectors(explicit_number.digits, base, quotient);
                     T result = 0;
-                    for (auto d : rem)  
+                    for (auto d : rem)
                     {
                         result = result * 10 + d;
                     }
-                    
+
                     new_digits.push_back(result);
                     explicit_number.digits = quotient;
                 }
-                
+
                 std::reverse (new_digits.begin(), new_digits.end());
                 exponent += (int)new_digits.size();
                 explicit_number.digits = new_digits;
                 explicit_number.exponent = exponent;
-            }           
+            }
 
             /**
              * @brief *Initializer list constructor with exponent:* Creates a boost::real::real_explicit
@@ -195,7 +194,7 @@ namespace boost {
              * @param positive - a bool that represents the number sign. If positive is set to true,
              * the number is positive, otherwise is negative.
              */
-            real_explicit<T>(std::initializer_list<T> digits, int exponent, bool positive) : 
+            real_explicit<T>(std::initializer_list<T> digits, int exponent, bool positive) :
                                                                                 explicit_number(digits,exponent,positive)
             {};
 
@@ -258,7 +257,7 @@ namespace boost {
              */
             real_explicit<T>& operator=(const real_explicit<T>& other) = default;
 
-            
+
         };
     }
 }

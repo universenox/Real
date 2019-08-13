@@ -9,26 +9,35 @@
 namespace boost{
     namespace real{
 
-        // fwd decl needed
+        // necessary forward declarations
         template <typename T>
         class real_data;
+
         template <typename T>
         class const_precision_iterator;
 
-        /*
-        * @brief real_operation is a (very unbalanced) binary tree representation of operations, where
-        * the leaves are the operands and the nodes store the type of operation
-        * 
-        * @warning due to the recursive nature of real_operation, destruction may cause stack overflow
-        */
+
+        /**
+         * @brief an enum used to determine the kind of real_operation we will
+         * perform between the operands
+         * 
+         * @todo add more operations, such as those found in math.h
+         */
         enum class OPERATION{ADDITION, SUBTRACTION, MULTIPLICATION, DIVISION}; 
 
+        /*
+         * @brief real_operation is an unbalanced binary tree representation of operations, where
+         * the leaves are the operands and the nodes store the type of operation
+         * 
+         * @todo consider ways to make the representation better. an unbalanced binary tree is inefficient.
+         * @warning due to the recursive nature of real_operation, stack overflow is a possible issue
+         */
         template <typename T = int>
         class real_operation{
         private:
-            std::shared_ptr<real_data<T>> _lhs;
-            std::shared_ptr<real_data<T>> _rhs;
-            OPERATION _operation;
+            std::shared_ptr<real_data<T>> _lhs; ///< points to the lhs operand
+            std::shared_ptr<real_data<T>> _rhs; ///< points to the rhs operand
+            OPERATION _operation; ///< the type of operation to perform between the operands
 
         public:
 
@@ -44,16 +53,22 @@ namespace boost{
                 return _operation;
             }
 
-            /// fwd decl'd, defined in real_data
+            // fwd decl'd, defined in real_data
             const_precision_iterator<T>& get_lhs_itr();
             
-            /// fwd decl'd, defined in real_data
+            // fwd decl'd, defined in real_data
             const_precision_iterator<T>& get_rhs_itr();
 
+            /**
+             * @returns a pointer to the rhs operand
+             */
             std::shared_ptr<real_data<T>> rhs() const {
                 return _rhs;
             }
 
+            /**
+             *  @returns a pointer to the lhs operand
+             */
             std::shared_ptr<real_data<T>> lhs() const {
                 return _lhs;
             }

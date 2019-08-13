@@ -9,16 +9,24 @@
 #include <type_traits>
 #include <limits>
 #include <iterator>
+#include <string>
 #include <cctype>
 
 namespace boost {
     namespace real {
+        /**
+         * @brief exact_number is the arbitrary precision data type that stores
+         * a finite number in a vector of digits, in some base
+         *
+         * @tparam T is the type of each digit, and is used to determine the
+         * internal base so that we utilize the memory T provides
+         *
+         * @todo replace all redundant declarations of base
+         */
         template <typename T = int>
         struct exact_number {
             using exponent_t = int;
 
-            // TODO: replace all redundant declarations of base with this
-            // static const T BASE = ;
 
             std::vector<T> digits = {};
             exponent_t exponent = 0;
@@ -66,7 +74,7 @@ namespace boost {
                     if (0 <= other.exponent + i && other.exponent + i < (int)other.digits.size()) {
                         rhs_digit = other.digits[other.exponent + i];
                     }
-                    
+
                     T digit;
                     int orig_carry = carry;
                     carry = 0;
@@ -129,15 +137,15 @@ namespace boost {
                     } else {
                         lhs_digit -= borrow;
                         borrow = 0;
-                        
+
                         if (lhs_digit < rhs_digit) {
                         ++borrow;
                         digit = (base - (rhs_digit -1)) + lhs_digit;
                         } else {
                             digit = lhs_digit - rhs_digit;
                         }
-                        
-                    }                    
+
+                    }
                     result.insert(result.begin(), digit);
                 }
                 this->digits = result;
@@ -146,24 +154,24 @@ namespace boost {
             }
 
             //Returns (a*b)%mod
-            T mulmod(T a, T b, T mod) 
-            { 
-                T res = 0; // Initialize result 
-                a = a % mod; 
-                while (b > 0) 
-                { 
-                    // If b is odd, add 'a' to result 
-                    if (b % 2 == 1) 
-                        res = (res + a) % mod; 
-            
-                    // Multiply 'a' with 2 
-                    a = (a * 2) % mod; 
-            
-                    // Divide b by 2 
-                    b /= 2; 
-                } 
-            
-                return res % mod; 
+            T mulmod(T a, T b, T mod)
+            {
+                T res = 0; // Initialize result
+                a = a % mod;
+                while (b > 0)
+                {
+                    // If b is odd, add 'a' to result
+                    if (b % 2 == 1)
+                        res = (res + a) % mod;
+
+                    // Multiply 'a' with 2
+                    a = (a * 2) % mod;
+
+                    // Divide b by 2
+                    b /= 2;
+                }
+
+                return res % mod;
             }
 
             //Returns (a*b)/mod
@@ -189,7 +197,7 @@ namespace boost {
                     }
                 }
                 return res;
-            } 
+            }
 
             /// multiplies *this by other
             void multiply_vector(exact_number &other, T base = (std::numeric_limits<T>::max() /4)*2) {
@@ -256,7 +264,7 @@ namespace boost {
 
                 int fractional_part = ((int)this->digits.size() - this->exponent) + ((int)other.digits.size() - other.exponent);
                 int result_exponent = (int)temp.size() - fractional_part;
-                
+
                 digits = temp;
                 exponent = result_exponent;
                 this->positive = this->positive == other.positive;
@@ -269,7 +277,7 @@ namespace boost {
                     const std::vector<T>& divisor,
                     std::vector<T>& quotient
             ) {
-                
+
                 exact_number<T> tmp;
                 std::vector<T> aligned_dividend = dividend;
                 std::vector<T> aligned_divisor = divisor;
@@ -282,8 +290,8 @@ namespace boost {
                     quotient.clear();
                     return std::vector<T>();
                 }
-                if ((aligned_dividend.size() == aligned_divisor.size() && 
-                        tmp.aligned_vectors_is_lower(aligned_dividend, aligned_divisor)) || 
+                if ((aligned_dividend.size() == aligned_divisor.size() &&
+                        tmp.aligned_vectors_is_lower(aligned_dividend, aligned_divisor)) ||
                             aligned_dividend.size() < aligned_divisor.size()) {
                     quotient.clear();
                     return aligned_dividend;
@@ -315,7 +323,7 @@ namespace boost {
                             tmp.exponent--;
                         }
                         size_t idx = 0;
-                        while(idx < closest.size() && closest[idx]==0) 
+                        while(idx < closest.size() && closest[idx]==0)
                             ++idx;
                         closest.erase(closest.begin(), closest.begin() + idx);
 
@@ -364,17 +372,15 @@ namespace boost {
                 return residual;
             }
 
-            /// calculates *this / divisor 
-            /// 
-            ///  @brief a binary-search type method for dividing exact_numbers.
-            ///  @param is_upper true: returns result with an error of +epsilon, while
-            ///                  false: returns result with an error of -epsilon
-            void divide_vector(exact_number<T> divisor, unsigned int maximum_precision) {
-                /// @TODO: replace this with something more efficient, like newton-raphson method
-                // it also completely recalculates on each precision increase
-                // instead, could use previous information to make better "guesses"
-                // for our iteration scheme.
 
+            /**
+             * calculates *this / divisor
+             * @brief a binary-search type method for dividing exact_numbers.
+             *
+             * @todo replace this with something more efficient, like newton-raphson method
+             * @todo utilize previous information for less iterations
+             */
+            void divide_vector(exact_number<T> divisor, unsigned int maximum_precision) {
                 boost::real::exact_number<T> numerator;
                 boost::real::exact_number<T> left;
                 boost::real::exact_number<T> right;
@@ -389,8 +395,7 @@ namespace boost {
                 numerator = (*this).abs();
                 divisor = divisor.abs();
 
-                // ensuring that assignment from -1 * (maximum_precision) to exponent will not
-                // overflow
+                // ensuring that assignment from -1 * (maximum_precision) to exponent will not overflow
                 if (maximum_precision > (unsigned int) std::abs(std::numeric_limits<exponent_t>::min())) {
                     throw exponent_overflow_exception();
                 }
@@ -417,7 +422,7 @@ namespace boost {
                 tmp.digits = {1};
                 tmp.exponent = 1;
 
-                exact_number<T> zero = exact_number<T>(); 
+                exact_number<T> zero = exact_number<T>();
 
                 if (divisor == tmp) {
                     this->exponent = exponent_dif + 1;
@@ -425,7 +430,7 @@ namespace boost {
                     return;
                 }
 
-                if (divisor == (*this)) { 
+                if (divisor == (*this)) {
                     (*this) = tmp;
                     (*this).positive = positive;
                     return;
@@ -433,7 +438,7 @@ namespace boost {
 
                 if ((*this) == zero)
                     return;
-                    
+
                 if (divisor == zero)
                     throw(boost::real::divide_by_zero());
 
@@ -459,9 +464,9 @@ namespace boost {
 
                 // calculate the result
                 // continue the loop while we are still inaccurate (up to max precision)
-                while ((residual.abs() > min_boundary_p) && 
+                while ((residual.abs() > min_boundary_p) &&
                        (distance.exponent >= min_boundary_p.exponent)) {
-                    // result too small, try halfway between left and (*this) 
+                    // result too small, try halfway between left and (*this)
                     if (residual < min_boundary_n) {
                         left = (*this);
                     }
@@ -486,7 +491,7 @@ namespace boost {
                     residual = ((*this) * divisor) - numerator;
                     residual.normalize();
                 }
-                
+
                 // truncate (*this)
                 this->normalize();
 
@@ -521,7 +526,7 @@ namespace boost {
                         (*this).normalize();
                         this->exponent += exponent_dif;
                         return;
-                    } 
+                    }
 
                     residual = tmp_upper * divisor - numerator;
                     residual.normalize();
@@ -550,6 +555,9 @@ namespace boost {
                 (*this).normalize();
             }
 
+            /**
+             * @brief rounds up *this, disregarding sign
+             */
             void round_up_abs(T base) {
                 int index = digits.size() - 1;
                 bool keep_carrying = true;
@@ -575,6 +583,9 @@ namespace boost {
                 }
             }
 
+            /**
+             * @brief rounds up *this
+             */
             void round_up(T base) {
                 if (positive)
                     this->round_up_abs(base);
@@ -582,6 +593,9 @@ namespace boost {
                     this->round_down_abs(base);
             }
 
+            /**
+             * @brief rounds down *this
+             */
             void round_down(T base) {
                 if (positive)
                     this->round_down_abs(base);
@@ -589,6 +603,9 @@ namespace boost {
                     this->round_up_abs(base);
             }
 
+            /**
+             * @brief rounds *this down, disregarding sign
+             */
             void round_down_abs(T base) {
                 int index = digits.size() - 1;
                 bool keep_carrying = true;
@@ -611,29 +628,42 @@ namespace boost {
              */
             exact_number<T>() = default;
 
-            /// ctor from vector of digits, integer exponent, and optional bool positive
+            /**
+             * @brief constructor from vector of digits, integer exponent, and optional bool positive.
+             * @warning base 10 only
+             */
             exact_number<T>(std::vector<T> vec, int exp, bool pos = true) : digits(vec), exponent(exp), positive(pos) {};
 
+            /**
+             * @brief ctor from vector of digits and optional bool positive. Assumes the number is integral.
+             * @warning base 10 only
+             */
             exact_number<T>(std::vector<T> vec, bool pos = true) : digits(vec), exponent(vec.size()), positive(pos) {};
 
             /// ctor from any integral type
-            /// @TODO: use whichever base.
+            /// @todo use whichever base for ctor from any integral type
             // template<typename I, typename std::enable_if_t<std::is_integral<I>::value>>
             // exact_number(I x) {
                 // if (x < 0)
                     // positive = false;
                 // else
                     // positive = true;
-                
+
                 // exponent = 0;
-                // while (((x % BASE) != 0) || (x != 0)) {
+                // while (((x % 10) != 0) || (x != 0)) {
                     // exponent++;
-                    // push_front(std::abs(x%BASE));
-                    // x /= BASE;
+                    // push_front(std::abs(x%10));
+                    // x /= 10;
                 // }
             // }
-        
-            // returns {integer_part, decimal_part, exponent, is_positive}
+
+            /**
+             * @brief From a valid number string, gets the integral part, decimal part, exponent, and positivity
+             * @returns a tuple {integer_part, decimal_part, exponent, is_positive}
+             *
+             * @throws octal_input_not_supported_exception()
+             * @throws invalid_string_number_exception()
+             */
             constexpr static std::tuple<std::string_view, std::string_view, exponent_t, bool> number_from_string(std::string_view number) {
                 std::string_view integer_part;
                 std::string_view decimal_part;
@@ -647,7 +677,6 @@ namespace boost {
                 bool has_sign = false;
 
                 size_t index = 0;
-
                 size_t integer_count = 0;
 
                 size_t decimal_start_index = 0; // pos of first number past '.'
@@ -669,7 +698,6 @@ namespace boost {
                 }
 
                 // first digit must be nonzero.
-
                 for (; index < number.size(); index++) {
                     // we should not have any characters in the input except 'e' and '.', and
                     // '.' can only come before e, and these characters can only occur once
@@ -693,7 +721,7 @@ namespace boost {
                                 decimal_start_index = index + 1;
                                 continue;
                             }
-                        } 
+                        }
                     }
 
                     // handle other characters, and numbers
@@ -724,7 +752,7 @@ namespace boost {
                                 }
                             } else {
                                 decimal_count++;
-                                decimal_count += decimal_rhs_zeros; 
+                                decimal_count += decimal_rhs_zeros;
                                 decimal_rhs_zeros = 0;
                                 continue;
                             }
@@ -767,8 +795,10 @@ namespace boost {
             }
 
             /**
-             * Takes a number of the form sign AeB, or A, where A is the desired number in base 10 and 
+             * Takes a number of the form sign AeB, or A, where A is the desired number in base 10 and
              * B is the integral exponent, and sign is + or -, and constructs an exact_number
+             *
+             * @warning base 10 only
              */
             constexpr explicit exact_number (const std::string& number) {
                 auto [integer_part, decimal_part, exponent, positive] = number_from_string((std::string_view)number);
@@ -785,7 +815,6 @@ namespace boost {
                     digits.push_back(c - '0');
                 }
             }
-            
 
             /**
              * @brief *Copy constructor:* It constructs a new boost::real::exact_number that is a copy of the
@@ -794,8 +823,6 @@ namespace boost {
              * @param other - The boost::real::exact_number to copy.
              */
             exact_number<T>(const exact_number<T> &other) = default;
-
-            /// TODO: move ctor
 
             /**
              * @brief Default asignment operator.
@@ -852,7 +879,7 @@ namespace boost {
                 } else {
                     if ((other.digits == zero) && this->positive)
                         return true;
-                } 
+                }
                 if (this->positive != other.positive) {
                     return this->positive;
                 }
@@ -895,6 +922,9 @@ namespace boost {
                 return !(*this == other);
             }
 
+            /**
+             * @returns the absolute value of *this
+             */
             exact_number<T> abs() {
                 exact_number<T> result = (*this);
                 result.positive = true;
@@ -1017,11 +1047,11 @@ namespace boost {
              * @return a string that represents the state of the boost::real::exact_number
              */
             std::string as_string() const {
-                std::string result = "";   
-                exact_number<T> tmp;         
+                std::string result = "";
+                exact_number<T> tmp;
 
                 // If the number is too large, scientific notation is used to print it.
-                /* @TODO add back later
+                /* @todo add back later
                 if ((this->exponent < -10) || (this->exponent > (int)this->digits.size() + 10)) {
                     result += "0|.";
                     for (const auto& d: this->digits) {
@@ -1090,7 +1120,7 @@ namespace boost {
                 std::istream_iterator<std::string> begin2(ss2);
                 std::istream_iterator<std::string> end2;
                 std::vector<std::string> decimal(begin2, end2);
-                std::reverse (decimal.begin(), decimal.end()); 
+                std::reverse (decimal.begin(), decimal.end());
 
                 //integer and decimal are string vectors with the "digits" in diff base
                 T b = (std::numeric_limits<T>::max() /4)*2;
@@ -1117,7 +1147,7 @@ namespace boost {
                         std::vector<T> temp;
                         std::string tempstr = integer[i];
                         for (size_t j = 0; j < tempstr.length(); ++j) {
-                            temp.push_back(tempstr[j] - '0'); 
+                            temp.push_back(tempstr[j] - '0');
                         }
                         tmp = (exact_number<T>(temp).base10_mult(exact_number<T>(base)));
                         temp = tmp.digits;
@@ -1126,7 +1156,7 @@ namespace boost {
                             tmp.exponent--;
                         }
                         size_t idx = 0;
-                        while(idx < temp.size() && temp[idx]==0) 
+                        while(idx < temp.size() && temp[idx]==0)
                             ++idx;
                         temp.erase(temp.begin(), temp.begin() + idx);
                         std::stringstream ss;
@@ -1149,7 +1179,7 @@ namespace boost {
                         tmp.exponent--;
                     }
                     size_t idx = 0;
-                    while(idx < new_base.size() && new_base[idx]==0) 
+                    while(idx < new_base.size() && new_base[idx]==0)
                         ++idx;
                     new_base.erase(new_base.begin(), new_base.begin() + idx);
                     powers.push_back(new_base);
@@ -1166,7 +1196,7 @@ namespace boost {
                     tempstr = tempstr + zeroes;
                     std::vector<T> temp;
                     for (size_t j = 0; j<tempstr.length(); ++j) {
-                        temp.push_back(tempstr[j] - '0'); 
+                        temp.push_back(tempstr[j] - '0');
                     }
                     std::vector<T> k = *pwr++;
                     std::vector<T> q;
@@ -1187,7 +1217,7 @@ namespace boost {
                 std::string fractionstr = sslast.str();
                 while (fractionstr.length() < precision)
                     fractionstr = "0" + fractionstr;
-                
+
                 if (fraction.empty())
                     return (positive ? "" : "-") + res_decimal;
                 else
@@ -1284,7 +1314,10 @@ namespace boost {
                 return this->digits.size();
             }
 
-            /// returns an exact_number that has the precision given
+            /**
+             * @param upper tells whether to round up (true) or down (false).
+             * @returns an exact_number that has the precision given, truncating and rounding when necessary
+             */
             exact_number<T> up_to(size_t precision, bool upper) {
                 T base = (std::numeric_limits<T>::max() /4)*2 - 1;
                 if (precision >= digits.size())
@@ -1305,7 +1338,10 @@ namespace boost {
                 return ret;
             }
 
-            bool is_integral() { 
+            /**
+             * @returns true if *this is integral, i.e., has no fractional part.
+             */
+            bool is_integral() {
                 if (exponent < 0) {
                     return false;
                 } else {

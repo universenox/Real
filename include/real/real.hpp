@@ -23,51 +23,195 @@ namespace boost {
     namespace real {
 
         /**
-         * @author Laouen Mayal Louan Belloli
+         * @brief boost::real::real represents real numbers as iterable intervals. Iterating the interval
+         * increases the precision. This is done as needed (until a set maximum precision) to obtain
+         * results from operations between reals. Reals support the basic operations addition, subtraction,
+         * multiplication, division, and comparison (>, <, ==, etc.).
          *
-         * @brief boost::real::real is a C++ class that represent real numbers as abstract entities that
-         * can be dynamically approximated as much as needed (until a set maximum precision) to be
-         * able to operate with them. Numbers can be added, subtracted, multiplied and compared by
-         * lower than and equality.
+         * @details A boost::real::real essentially acts as a wrapper around one of the next three representations:
          *
-         * @details A boost::real::real number is represented by the operations from which the number
-         * is created, the entire operation is represented as a binary tree where the leaves are
-         * literal numbers and the internal nodes are the operations. Also, boost::real::real allow to
-         * represent irrational numbers by taking as parameter a function pointer or lambda function
-         * that given un unsigned integer "n", the function returns the n-th digit of the irrational
-         * number.
+         *  1. Explicit
+         *              Vector of digits with the most significant digits first. An exponent is used to determine
+         *              the decimal place, so that the number is equal to {digits}*10^(-1 + exp). Essentially,
+         *              the decimal starts to the left of the given digits, and the exponent shifts it. A
+         *              boolean is used to set the number as positive (True) or negative (False)
          *
-         * A number can be one of the following three kind:
+         *  2. Algorithm (@ref boost::real::real_algorithm)
+         *               This representation is equivalent to the Explicit number but instead of using a vector
+         *               of digits, a function pointer must be provided. The function takes an unsigned integer
+         *               "n" as parameter and returns the n-th digit of the number.
          *
-         *  1. Explicit number: A number is a vector of digits sorted as in the number natural
-         *  representation. To determine where the integer part ends and the fractional part starts,
-         *  an integer is used as the exponent of a floating point number and determines where the
-         *  integer part start and the fractional ends. Also a boolean is used to set the number as
-         *  positive (True) or negative (False)
+         *  3. Operation (@ref boost::real::real_operation)
+         *              Composition of two numbers related by an operator (+, -, *, /). Such compositions
+         *              are a binary tree whose leaves are operands, and parent nodes are real_operations
          *
-         *  2. Algorithmic number: This representation is equal to the Explicit number but instead
-         *  of using a vector of digits, a lambda function must be provided. The lambda function
-         *  takes an unsigned integer "n" as parameter and returns the n-th digit of the number.
-         *
-         *  3. A number is a composition of two numbers related by an operator (+, -, *), the number
-         *  creates pointers to the operands and each time the number is used, the operation is
-         *  evaluated to return the result.
-         *
-         * Two boost::real::real numbers can be compared by the lower operator "<" and by the equal
-         * operator "==" but for those cases where the class is not able to decide the value of the
-         * result before reaching the maximum precision, a precision_exception is thrown.
+         * Two boost::real::real numbers can be compared by the standard comparison operators, such as
+         * '<'. In the case that the result cannot be determined using a precision <= maximum precision,
+         * a precision_exception is thrown, such as when comparing something like .999...9 and .999...8.
          */
-        /// @TODO: replace T with something more descriptive 
+
+
+        /// @todo replace T with something more descriptive
+        /// @todo Move constructors to move directly from the ctors in real_explicit to the values in real_data
+        /// @todo do we need different ctors to be more efficient? rvalue and lvalue ref ctors?
+        /// @todo power operation
         template <typename T = int>
         class real {
         private:
             std::shared_ptr<real_data<T>> _real_p;
+
             // ctor from shared_ptr to (already init) real_data. used in check_and_distribute.
             real(std::shared_ptr<real_data<T>> x) : _real_p(x){};
 
+            // ctors from the 3 underlying types. private for now as I believe
+            // the base change will not work if using the "inner" constructors directly.
+            real(real_explicit<T> x) : _real_p(std::make_shared<real_data<T>>(x)) {};
+            real(real_algorithm<T> x) : _real_p(std::make_shared<real_data<T>>(x)) {};
+            real(real_operation<T> x) : _real_p(std::make_shared<real_data<T>>(x)) {};
+
+            /**
+             * @brief a helper function for distributing when performing addition/subtraction
+             * @param assign_and_return_void is true when we wish to assign the result to *this
+             * and not pass back a value for the std::optional<real>
+             *
+             * @returns a std::pair with a bool that is true if we distributed, false otherwise, and a std::real<optional>
+             * that has a value when we distributed, and !assign_and_return_void.
+             */
+            std::pair<bool, std::optional<real>> check_and_distribute(real & other, bool assign_and_return_void, OPERATION op) {
+                // The following simplifies using the distributive property, when numbers have the same pointers.
+                // We could do comparison by value, but this may force more computation than is necessary for the user,
+                // since it's difficult to determine whether values are the same
+
+                std::shared_ptr<real_data<T>> a;
+                std::shared_ptr<real_data<T>> b;
+                std::shared_ptr<real_data<T>> x;
+
+                if(auto op_ptr = std::get_if<real_operation<T>>(this->_real_p->get_real_ptr())) {
+                    if (auto op_ptr2 = std::get_if<real_operation<T>>(other._real_p->get_real_ptr())) { // both of real_operation
+                        if ((op_ptr->get_operation() == OPERATION::MULTIPLICATION) && op_ptr2->get_operation() == OPERATION::MULTIPLICATION) {
+                            if (op_ptr->lhs() == op_ptr2->lhs()) { // x * a + x * b = (a + b) * x
+                                a = op_ptr->rhs();
+                                b = op_ptr2->rhs();
+                                x = op_ptr->lhs();
+
+                            } else if (op_ptr->lhs() == op_ptr2->rhs()) { // x * a + b * x = (a + b) * x
+                                a = op_ptr->rhs();
+                                b = op_ptr2->lhs();
+                                x = op_ptr->lhs();
+
+                            } else if (op_ptr->rhs() == op_ptr2->lhs()) { // a * x + x * b = (a + b) * x
+                                a = op_ptr->lhs();
+                                b = op_ptr2->rhs();
+                                x = op_ptr->rhs();
+
+                            } else if (op_ptr->rhs() == op_ptr2->rhs()) { // a * x + b * x = (a + b) * x
+                                a = op_ptr->lhs();
+                                b = op_ptr2->lhs();
+                                x = op_ptr->rhs();
+                            } else {
+                                return std::make_pair(false, std::nullopt);
+                            }
+
+                            real<T> a_op_b;
+
+                            if(op == OPERATION::ADDITION) {
+                                a_op_b = real(a) + real(b);
+                            }
+                            else if (op == OPERATION::SUBTRACTION) {
+                                a_op_b = real(a) + real(b);
+                            } else {
+                                throw invalid_distribution_operation_exception();
+                            }
+
+                            if(assign_and_return_void) {
+                                this->_real_p = std::make_shared<real_data<T>>(real_operation(a_op_b._real_p, x, OPERATION::MULTIPLICATION));
+                                return std::make_pair(true, std::nullopt);
+                            } else {
+                                return std::make_pair(true, real(real_operation(a_op_b._real_p, x, OPERATION::MULTIPLICATION)));
+                            }
+                        }
+                    } else { // rhs is not an operation
+                        if (op_ptr->get_operation() == OPERATION::MULTIPLICATION) {
+                            if (other._real_p == op_ptr->lhs()) { // (a * x) + a -> (x + 1) * a
+                                a = op_ptr->lhs();
+                                x = op_ptr->rhs();
+
+                            } else if (other._real_p == op_ptr->rhs()) {// (x * a) + a -> (x + 1) * a
+                                a = op_ptr->rhs();
+                                x = op_ptr->lhs();
+                            } else {
+                                return std::make_pair(false, std::nullopt);
+                            }
+
+                            real<T> one ("1");
+                            real<T> x_op_1;
+                            if(op == OPERATION::ADDITION) {
+                                x_op_1 = real(x) + one;
+                            }
+                            else if (op == OPERATION::SUBTRACTION) {
+                                x_op_1 = real(x) + one;
+                            } else {
+                                throw invalid_distribution_operation_exception();
+                            }
+
+                            if(assign_and_return_void) {
+                                this->_real_p = std::make_shared<real_data<T>>(real_operation(x_op_1._real_p, a, OPERATION::MULTIPLICATION));
+                                return std::make_pair(true, std::nullopt);
+                            } else {
+                                return std::make_pair(true, real(real_operation(x_op_1._real_p, a, OPERATION::MULTIPLICATION)));
+                            }
+                        }
+                    }
+                } else if(auto op_ptr = std::get_if<real_operation<T>>(&other._real_p->get_real_number())) { // lhs is not an operation, but rhs is
+                    if (op_ptr->get_operation() == OPERATION::MULTIPLICATION) {
+                        if (this->_real_p == op_ptr->lhs()) { // a + (a * x) -> (x + 1) * a
+                            a = this->_real_p;
+                            x = op_ptr->rhs();
+
+                        } else if (this->_real_p == op_ptr->rhs()) {// a + (x * a) -> (x + 1) * a
+                            a = this->_real_p;
+                            x = op_ptr->lhs();
+                        } else {
+                            return std::make_pair(false, std::nullopt);
+                        }
+
+                        real<T> x_op_1;
+                        real<T> one ("1");
+
+                        if(op == OPERATION::ADDITION) {
+                            x_op_1 = real(x) + one;
+                        }
+                        else if (op == OPERATION::SUBTRACTION) {
+                            x_op_1 = real(x) + one;
+                        } else {
+                            throw invalid_distribution_operation_exception();
+                        }
+
+                        if(assign_and_return_void) {
+                            this->_real_p = std::make_shared<real_data<T>>(real_operation(x_op_1._real_p, a, OPERATION::MULTIPLICATION));
+                            return std::make_pair(true, std::nullopt);
+                        } else {
+                            return std::make_pair(true, real(real_operation(x_op_1._real_p, a, OPERATION::MULTIPLICATION)));
+                        }
+                    }
+                } else { // neither is an operation
+                    if ((this->_real_p == other._real_p) && (op == OPERATION::ADDITION)) { // a + a = 2 * a
+                        std::shared_ptr<real_data<T>> two = std::make_shared<real_data<T>>(real_explicit("2"));
+
+                        if(assign_and_return_void) {
+                            this->_real_p = std::make_shared<real_data<T>>(real_operation(two, this->_real_p, OPERATION::MULTIPLICATION));
+                            return std::make_pair(true, std::nullopt);
+                        } else {
+                            return std::make_pair(true, real(real_operation(two, this->_real_p, OPERATION::MULTIPLICATION)));
+                        }
+                    }
+                }
+
+                // at this point, we cannot distribute.
+                return std::make_pair(false, std::nullopt);
+            }
+
         public:
-            /// @TODO: Move constructors to move directly from the ctors in real_explicit to the values in real_data
-            /// @TODO: do we need different ctors to be more efficient? rvalue AND lvalue ref?
 
             /**
              * @brief *Default constructor:* Construct a boost::real::real with undefined representation
@@ -109,7 +253,7 @@ namespace boost {
                         numerator = "-" + numerator;
                     std::shared_ptr<real_data<T>> lhs = std::make_shared<real_data<T>>(real_explicit<T>(numerator));
                     std::shared_ptr<real_data<T>> rhs = std::make_shared<real_data<T>>(real_explicit<T>(denominator));
-    
+
                     this->_real_p  = std::make_shared<real_data<T>>(real_operation(lhs, rhs, OPERATION::DIVISION));
                 }
             }
@@ -192,44 +336,47 @@ namespace boost {
              * @param positive - a bool that represent the number sign. If positive is set to true,
              * the number is positive, otherwise is negative.
              */
-            real(T (*get_nth_digit)(unsigned int), int exponent, bool positive) 
+            real(T (*get_nth_digit)(unsigned int), int exponent, bool positive)
                  : _real_p(::std::make_shared<real_data<T>>(real_algorithm<T>(get_nth_digit, exponent, positive))) {};
-
-            // ctors from the 3 underlying types
-            real(real_explicit<T> x) : _real_p(std::make_shared<real_data<T>>(x)) {};
-            real(real_algorithm<T> x) : _real_p(std::make_shared<real_data<T>>(x)) {};
-            real(real_operation<T> x) : _real_p(std::make_shared<real_data<T>>(x)) {};
 
             /**
              * @brief Default destructor
              */
             ~real() = default;
 
+            /// @returns the variant containing the underlying real number
             const real_number<T>& get_real_number() {
                 return _real_p->get_real_number();
             }
 
+            /**
+             * @returns the @ref boost::real::const_precision_iterator of the
+             * underlying real number
+             */
             const_precision_iterator<T> get_real_itr() const {
                 return _real_p->get_precision_itr();
             }
 
             /**
-             * @brief Returns the maximum allowed precision, if that precision is reached and an
-             * operator need more precision, a precision_exception should be thrown.
-             *
-             * @return and integer with the maximum allowed precision.
+             * @returns an integer with the maximum allowed precision.
+             * @ref boost::real::const_precision_iterator::maximum_precision()
              */
             unsigned int maximum_precision() const {
                 return get_real_itr().maximum_precision();
             }
 
             /// set max precision for the underlying iterator
-            void set_maximum_precision(unsigned int maximum_precision) {
+            void set_maximum_precision(precision_t maximum_precision) {
                 this->_real_p->get_precision_itr().set_maximum_precision(maximum_precision);
             }
 
+            /// set global max precision
+            static void set_global_maximum_precision(precision_t maximum_precision) {
+                const_precision_iterator<T>::set_global_maximum_precision(maximum_precision);
+            }
+
             /************** Operators ******************/
-            
+
             /**
              * @brief If the number is an explicit or algorithm number it returns the n-th digit
              * of the represented number. If the number is an operation it throws an invalid_representation_exception
@@ -240,10 +387,10 @@ namespace boost {
              * @throws boost::real::invalid_representation_exception
              */
             T operator[](unsigned int n) const {
-                T ret; 
+                T ret;
 
                 std::visit( overloaded { // perform operation on whatever is held in variant
-                    [&n, &ret] (const real_explicit<T>& real)  { 
+                    [&n, &ret] (const real_explicit<T>& real)  {
                         ret = real[n];
                     },
                     [&n, &ret] (const real_algorithm<T>& real) {
@@ -260,11 +407,13 @@ namespace boost {
             }
 
 
-            // a constant used in the print tree helper function
+            /// a constant used in the print_tree helper function
             static const int PRINT_SPACE = 5;
-            // a helper function for observing the trees within a real
-            // note the tree is displayed with a left 90 degree rotation
-            // (i.e., root on the left, nodes on the next leftmost level)
+            /**
+             * @brief a helper function for observing the tree within a real
+             * @details the tree is displayed with a left 90 degree rotation
+             * with the root on the left, and nodes on the next leftmost level
+             */
             void print_tree(int space = PRINT_SPACE) {
                 std::visit(overloaded {
                     [space] (const real_explicit<T>& real)  {
@@ -308,17 +457,29 @@ namespace boost {
                 }, _real_p->get_real_number());
             }
 
-            // this is used to control the amount of recursion that goes on in the distribution. Essentially, when we do a + b, we may 
-            // look at one level below them (if applicable, i.e., they're operations pointing to operands of their own). 
+            /* @brief used to control the amount of recursion that goes on in the distribution. Essentially, when we do a + b, we may
+             * look at one level below them (if applicable, i.e., a, b, are also operations)
 
-            // we at most need to look at two levels.
-            // this is because in the case we have, say, x*a+x*b -> (a+b)*x, we may want to look at a and b's operands, if applicable, to see if
-            // they may be distributed as well. 
+             * @details We at most need to look at two levels. This is because in the case we have, say, x*a+x*b -> (a+b)*x,
+             * we may want to look at a and b's operands, if applicable, to see if they may be distributed as well. However,
+             * we are not interested in a, b's operands' operands.
+             */
             enum class RECURSION_LEVEL{ZERO, ONE, TWO};
 
-            // a helper function for distributing when performing addition/subtraction 
-            // the returned bool tells us whether we distributed or not, which is mostly useful when assign_and_return_void is true
-            // since std::optional<real> would = std::null_opt if assign_and_return_void is false.
+            /*
+             * @brief a helper function for distributing when performing addition/subtraction
+             * @param other - the rhs operand
+             * @param assign_and_return_void - if true, and if we can distribute, assigns the result
+             * to *this. Else, returns the result in the std::optional<real>.
+             * @param op - The operation. Only supports addition and subtraction.
+             * @param rc_lvl - How many more levels down we have to look. We decrement the recursion
+             * level every time we recurse.
+             *
+             * @returns a std::pair with a bool and std::optional<real>. The bool tells us whether
+             * we distributed or not, which is useful when assign_and_return_void is true. If we did,
+             * not distribute, then the option == std::nullopt. The std::optional<real> returns the
+             * value from distributing the operation if !assign_and_return_void and if we distributed.
+             */
             std::pair<bool, std::optional<real>> check_and_distribute(const real & other, const bool assign_and_return_void, const OPERATION op, const RECURSION_LEVEL rc_lvl) {
                 // The following simplifies using the distributive property, when numbers have the same pointers.
                 // We could do comparison by value, but this may force more computation than is necessary for the user,
@@ -390,7 +551,7 @@ namespace boost {
                             }
                         }
                     } else { // lhs is an operation, but rhs is not an operation
-                        if (op_ptr->get_operation() == OPERATION::MULTIPLICATION) { 
+                        if (op_ptr->get_operation() == OPERATION::MULTIPLICATION) {
                             if (other._real_p == op_ptr->lhs()) { // (a * x) + a -> (x + 1) * a
                                 a = op_ptr->lhs();
                                 x = op_ptr->rhs();
@@ -438,7 +599,7 @@ namespace boost {
                             } else {
                                 return std::make_pair(true, real(real_operation<T>(x_op_1._real_p, a, OPERATION::MULTIPLICATION)));
                             }
-                        } 
+                        }
                     }
                 } else if(auto op_ptr = std::get_if<real_operation<T>>(&other._real_p->get_real_number())) { // lhs is not an operation, but rhs is
                     if (op_ptr->get_operation() == OPERATION::MULTIPLICATION) {
@@ -500,13 +661,13 @@ namespace boost {
                         } else {
                             return std::make_pair(true, real(real_operation(two, this->_real_p, OPERATION::MULTIPLICATION)));
                         }
-                    } 
-                } 
+                    }
+                }
 
                 // at this point, we cannot distribute.
                 return std::make_pair(false, std::nullopt);
             }
-            
+
 
             // helper function used in check_and_distribute to limit recursion
             real recurse_op(real& other, RECURSION_LEVEL rc_lvl, OPERATION op) {
@@ -516,7 +677,7 @@ namespace boost {
 
                         if (!is_simplified) {
                             real ret = (*this);
-                            ret._real_p = 
+                            ret._real_p =
                                 std::make_shared<real_data<T>>(real_operation(this->_real_p, other._real_p, op));
                             return ret;
                         } else {
@@ -527,7 +688,7 @@ namespace boost {
                     }
                     case RECURSION_LEVEL::ZERO: {
                         real ret = (*this);
-                        ret._real_p = 
+                        ret._real_p =
                             std::make_shared<real_data<T>>(real_operation(this->_real_p, other._real_p, op));
                         return ret;
                         break;
@@ -550,17 +711,16 @@ namespace boost {
             /**
              * @brief Sets this real_data to that of the operation between this previous
              * real_data and other real_data.
-             * 
+             *
              * If this is being pointed to by another operation, a copy of this is created.
              *
              * @param other - the right side operand boost::real::real number.
              */
-
             void operator+=(real other) {
                 auto [is_simplified,result] = check_and_distribute(other, true, OPERATION::ADDITION, RECURSION_LEVEL::TWO);
-                
+
                 if (!is_simplified) {
-                    this->_real_p = 
+                    this->_real_p =
                         std::make_shared<real_data<T>>(real_operation(this->_real_p, other._real_p, OPERATION::ADDITION));
                 }
             }
@@ -591,7 +751,7 @@ namespace boost {
                 auto [is_simplified, result] = check_and_distribute(other, true, OPERATION::SUBTRACTION, RECURSION_LEVEL::TWO);
 
                 if(!is_simplified) {
-                    this->_real_p = 
+                    this->_real_p =
                         std::make_shared<real_data<T>>(real_operation(this->_real_p, other._real_p, OPERATION::SUBTRACTION));
                 }
             }
@@ -613,7 +773,7 @@ namespace boost {
             }
 
             /**
-             * @brief Sets this real_data to that of the operation between 
+             * @brief Sets this real_data to that of the operation between
              * this previous real_data and other real_data.
              *
              * @param other - the right side operand boost::real::real number.
@@ -646,7 +806,7 @@ namespace boost {
             }
 
             /**
-             * @brief Sets this real_data to that of the operation between 
+             * @brief Sets this real_data to that of the operation between
              * this previous real_data and other real_data.
              *
              * @param other - the right side operand boost::real::real number.
@@ -819,7 +979,6 @@ namespace boost {
 }
 
 //User Defined Literals
-
 inline auto operator "" _r(long double x) {
     return boost::real::real<int>(std::to_string(x));
 }

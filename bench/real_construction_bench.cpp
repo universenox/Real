@@ -18,7 +18,7 @@ void BM_RealOperationTreeConstruction(benchmark::State& state, boost::real::OPER
 
         // We keep the precision constant here because in constructing the *= tree, we would get way more digits
         // than in +=, -= trees. This should make the benchmarks more meaningful
-        a.set_maximum_precision(2);
+        boost::real::real<>::set_global_maximum_precision(10);
 
         for (int i = 0; i < state.range(0); i++) {
             realOperationEq(a,b,op);
@@ -54,6 +54,8 @@ void BM_RealExplicitConstruction_String(benchmark::State& state) {
     for (auto i : state) {
         state.PauseTiming(); // construct a string representing a number of n digits
         std::string number;
+
+        boost::real::real<>::set_global_maximum_precision(state.range(0)); // provide enough precision to not throw precision exception
 
         for (int i = 0; i < state.range(0); i++) {
             number.push_back('1');

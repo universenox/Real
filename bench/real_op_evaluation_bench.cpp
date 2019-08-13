@@ -1,7 +1,7 @@
 #include <benchmark/benchmark.h>
 #include <benchmark_helpers.hpp>
 
-const int MIN_TREE_NODES = 10; 
+const int MIN_TREE_NODES = 10;
 const int MAX_TREE_NODES = 10000;
 const int MULTIPLIER_TE = 10;  // for range evaluation of tree evaluation benchmarks
 
@@ -44,11 +44,14 @@ const int MIN_NUM_DIGITS = 1;
 const int MAX_NUM_DIGITS = 100 ;
 const int MULTIPLIER_OE = 10;
 
-/// benchmarks a op= b, where a, b, have n digits, where n is the set of powers of 
+/// benchmarks a op= b, where a, b, have n digits, where n is the set of powers of
 /// MULTIPLIER_OE, between MIN_NUM_DIGITS and MAX_NUM_DIGITS
 void BM_RealOperationEvaluation(benchmark::State& state, boost::real::OPERATION op) {
     for (auto i : state) {
         state.PauseTiming(); // construct a, b
+        // keep precision at a constant so multiplication isn't significantly
+        // more precise than addition, to make the comparison fair
+        boost::real::real<>::set_global_maximum_precision(10);
         std::string tmp;
         for (int i = 0; i < state.range(0); i++) {
             tmp.push_back('2');
@@ -90,12 +93,15 @@ void BM_RealComparisonEvaluation(benchmark::State& state, Comparison comp) {
     for (auto i : state) {
         state.PauseTiming(); // construct a, b
         std::string tmp;
+
         for (int i = 0; i < state.range(0); i++) { // we compare 111...1 and 111..1
             tmp.push_back('1');
         }
         boost::real::real<> a(tmp);
         boost::real::real<> b(tmp);
 
+        // to avoid precision exception being thrown
+        boost::real::real<>::set_global_maximum_precision(tmp.size());
         state.ResumeTiming();
 
         bool boo = realComp(a,b,comp); // evaluation

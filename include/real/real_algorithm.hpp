@@ -3,26 +3,25 @@
 
 #include <real/real_exception.hpp>
 
-namespace boost { 
+namespace boost {
     namespace real {
         /**
          * @author Laouen Mayal Louan Belloli
          *
          * @brief boost::real::real_algorithm is a C++ class that represents real numbers as a
-         * a function that calculates the n-th digit o the number, a sign and an exponent.
+         * a function that calculates the n-th digit of the number, a sign and an exponent.
          *
          * @details Because a function pointer of lambda function is used to obtain the number
-         * digits on demand, numbers with infinite representations as the irrational numbers can be
+         * digits on demand, numbers with infinite digits (irrational numbers) can be
          * represented using this class.
+         *
+         * @todo figure out how we can save information between iterations
+         * to avoid unnecessary recalculations, like in irrational_helpers.hpp
          */
-        
         template <typename T = int>
         class real_algorithm {
-
-            // Number representation as a function that returns the number digits
-            // an integer part and a sign (+/-)
-            int (*_get_nth_digit)(unsigned int);
-            int _exponent;
+            T (*_get_nth_digit)(unsigned int); ///< Function that returns the n'th digit of the represented number
+            int _exponent; ///< One less than e notation, i.e, 1e0 would have an _exponent of -1.
             bool _positive;
 
             public:
@@ -74,7 +73,7 @@ namespace boost {
                      {};
 
             /**
-             * @return An integer with the number exponent
+             * @returns a copy of the number's exponent
              */
             int exponent() const {
                 return this->_exponent;

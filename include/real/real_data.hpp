@@ -16,20 +16,25 @@
 namespace boost { 
     namespace real{
 
+        /**
+         * @brief real_data contains all the information that determines a boost::real::real 
+         * number.
+         * 
+         * @todo use move constructors, if possible
+         */
         template <typename T = int>
         class real_data {
-            real_number<T> _real;
+            real_number<T> _real; 
             const_precision_iterator<T> _precision_itr;
 
             public:
-            /// @TODO: use move constructors, if possible
+
+            real_data() = default; ///< @brief default ctor
             
-            real_data() = default;
-            
-            /// copy ctor - constructs real_data from other real_data
+            /// @brief copy ctor - constructs real_data from other real_data
             real_data(const real_data<T> &other) : _real(other._real), _precision_itr(other._precision_itr) {};
 
-            // construct from the three different reals 
+            // construct from the three different underlying reals. move ctor here may be good.
             real_data(real_explicit<T> x) :_real(x), _precision_itr(&_real) {};
             real_data(real_algorithm<T> x) : _real(x), _precision_itr(&_real) {};
             real_data(real_operation<T> x) : _real(x), _precision_itr(&_real) {};
@@ -51,7 +56,7 @@ namespace boost {
         // Note these are all inline to avoid linker issues.
 
         /* const_precision_iterator member functions */
-        /// determines a real_operation's approximation interval from its operands'
+        /// @brief determines a real_operation's approximation interval from its operands'
         template <typename T>
         inline void const_precision_iterator<T>::update_operation_boundaries(real_operation<T> &ro) {
             switch (ro.get_operation()) {
@@ -293,10 +298,15 @@ namespace boost {
                     throw boost::real::none_operation_exception();
             }
         }
-
+        
+        /**
+         * @brief used to iterate a real_operation n times, by iterating its operands then
+         * updating the real_operation's approximation_interval's boundaries
+         * 
+         * @warning there could be issues if operands have different precisions/max precisions
+         */
         template <typename T>
         inline void const_precision_iterator<T>::operation_iterate_n_times(real_operation<T> &ro, int n) {
-            /// @warning there could be issues if operands have different precisions/max precisions
 
             if (ro.get_lhs_itr()._precision < this->_precision + n) {
                 ro.get_lhs_itr().iterate_n_times(n);
@@ -311,6 +321,9 @@ namespace boost {
             update_operation_boundaries(ro);
         }
 
+        /**
+         * @brief iterates the real_operation once.
+         */ 
         template <typename T>
         inline void const_precision_iterator<T>::operation_iterate(real_operation<T> &ro) {
             // only iterate if we must. If operand precision < this precision, then it must have
@@ -330,14 +343,18 @@ namespace boost {
         }
 
         /* real_operation member functions */
-
-        // note that we return a reference. It is necessary, for now, since iterating operands 
-        // (see operation_iterate, above) REQUIRES modifying the operands' precision iterators
+        /**
+         * @returns a reference to the real_operation's lhs const_precision_iterator
+         * @note we return a reference because we must modify it.
+         */
         template <typename T>
         inline const_precision_iterator<T>& real_operation<T>::get_lhs_itr() {
             return _lhs->get_precision_itr();
         }
 
+        /**
+         * @returns a reference to the real_operation's rhs const_precision_iterator
+         */
         template <typename T>
         inline const_precision_iterator<T>& real_operation<T>::get_rhs_itr() {
             return _rhs->get_precision_itr();
